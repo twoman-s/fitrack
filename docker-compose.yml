@@ -10,8 +10,7 @@ services:
       - media_data:/app/media
       - static_data:/app/staticfiles
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     restart: unless-stopped
 
   db:
@@ -25,11 +24,6 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "45459:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
     restart: unless-stopped
 
 volumes:
