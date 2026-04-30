@@ -1,0 +1,126 @@
+class DashboardData {
+  final double? latestMorningWeight;
+  final String? latestMorningTime;
+  final double? latestEveningWeight;
+  final String? latestEveningTime;
+  final double? weeklyAvg;
+  final double? monthlyAvg;
+  final int streak;
+  final List<DailyWeight> weeklyGraph;
+  final PhotoSession? latestPhotos;
+
+  DashboardData({
+    this.latestMorningWeight,
+    this.latestMorningTime,
+    this.latestEveningWeight,
+    this.latestEveningTime,
+    this.weeklyAvg,
+    this.monthlyAvg,
+    required this.streak,
+    this.weeklyGraph = const [],
+    this.latestPhotos,
+  });
+
+  factory DashboardData.fromJson(Map<String, dynamic> json) {
+    return DashboardData(
+      latestMorningWeight: _parseDouble(json['latest_morning_weight']),
+      latestMorningTime: json['latest_morning_time'],
+      latestEveningWeight: _parseDouble(json['latest_evening_weight']),
+      latestEveningTime: json['latest_evening_time'],
+      weeklyAvg: _parseDouble(json['weekly_avg']),
+      monthlyAvg: _parseDouble(json['monthly_avg']),
+      streak: json['streak'] ?? 0,
+      weeklyGraph: (json['weekly_graph'] as List?)
+          ?.map((e) => DailyWeight.fromJson(e))
+          .toList() ?? [],
+      latestPhotos: json['latest_photos'] != null 
+          ? PhotoSession.fromJson(json['latest_photos']) 
+          : null,
+    );
+  }
+
+  static double? _parseDouble(dynamic val) {
+    if (val == null) return null;
+    if (val is int) return val.toDouble();
+    if (val is double) return val;
+    if (val is String) return double.tryParse(val);
+    return null;
+  }
+}
+
+class PhotoSession {
+  final int id;
+  final String date;
+  final String notes;
+  final List<ProgressPhoto> photos;
+
+  PhotoSession({
+    required this.id,
+    required this.date,
+    required this.notes,
+    required this.photos,
+  });
+
+  factory PhotoSession.fromJson(Map<String, dynamic> json) {
+    return PhotoSession(
+      id: json['id'],
+      date: json['date'],
+      notes: json['notes'] ?? '',
+      photos: (json['photos'] as List?)
+          ?.map((e) => ProgressPhoto.fromJson(e))
+          .toList() ?? [],
+    );
+  }
+}
+
+class ProgressPhoto {
+  final int id;
+  final String photoType;
+  final String? imageUrl;
+  final String uploadedAt;
+
+  ProgressPhoto({
+    required this.id,
+    required this.photoType,
+    this.imageUrl,
+    required this.uploadedAt,
+  });
+
+  factory ProgressPhoto.fromJson(Map<String, dynamic> json) {
+    return ProgressPhoto(
+      id: json['id'],
+      photoType: json['photo_type'],
+      imageUrl: json['image_url'],
+      uploadedAt: json['uploaded_at'],
+    );
+  }
+}
+
+class DailyWeight {
+  final String date;
+  final String day;
+  final double? morningWeight;
+  final String? morningWeightTime;
+  final double? eveningWeight;
+  final String? eveningWeightTime;
+
+  DailyWeight({
+    required this.date,
+    required this.day,
+    this.morningWeight,
+    this.morningWeightTime,
+    this.eveningWeight,
+    this.eveningWeightTime,
+  });
+
+  factory DailyWeight.fromJson(Map<String, dynamic> json) {
+    return DailyWeight(
+      date: json['date'],
+      day: json['day'],
+      morningWeight: DashboardData._parseDouble(json['morning_weight']),
+      morningWeightTime: json['morning_weight_time'],
+      eveningWeight: DashboardData._parseDouble(json['evening_weight']),
+      eveningWeightTime: json['evening_weight_time'],
+    );
+  }
+}
