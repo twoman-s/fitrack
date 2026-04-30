@@ -2,17 +2,12 @@
 set -e
 
 echo "Waiting for PostgreSQL..."
-until python -c "
-import socket, sys
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-try:
-    s.connect(('${DB_HOST:-db}', ${DB_PORT:-5432}))
-    s.close()
-except Exception:
-    sys.exit(1)
-" 2>/dev/null; do
-    sleep 1
+
+until pg_isready -h ${DB_HOST:-db} -p ${DB_PORT:-5432} -U ${DB_USER:-postgres}
+do
+  sleep 1
 done
+
 echo "PostgreSQL is ready."
 
 echo "Applying database migrations..."
@@ -22,6 +17,7 @@ echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
 echo "Starting Gunicorn..."
+
 exec gunicorn fitrack_backend.wsgi:application \
     --bind 0.0.0.0:8000 \
     --workers 3 \
