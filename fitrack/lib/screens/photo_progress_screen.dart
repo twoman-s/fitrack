@@ -124,7 +124,7 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
               formatButtonVisible: false,
               titleCentered: true,
             ),
-            calendarStyle: const CalendarStyle(
+            calendarStyle: CalendarStyle(
               selectedDecoration: BoxDecoration(
                 color: AppTheme.primary,
                 borderRadius: BorderRadius.circular(8),
