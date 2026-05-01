@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/progress_provider.dart';
@@ -56,7 +57,8 @@ class MainScaffold extends ConsumerWidget {
         icons: _icons,
         labels: _labels,
         onFabTap: currentIndex == 2
-            ? () => context.push('/upload-photo')
+            ? () => context.push('/add-photos',
+                extra: DateFormat('yyyy-MM-dd').format(DateTime.now()))
             : () => _showQuickAddOptions(context),
         fabIcon: currentIndex == 2 ? LucideIcons.camera : LucideIcons.plus,
       ),
@@ -90,7 +92,8 @@ class MainScaffold extends ConsumerWidget {
                   title: const Text('Add Progress Photo', style: TextStyle(color: Colors.white)),
                   onTap: () {
                     Navigator.pop(context);
-                    context.push('/upload-photo');
+                    context.push('/add-photos',
+                        extra: DateFormat('yyyy-MM-dd').format(DateTime.now()));
                   },
                 ),
               ],

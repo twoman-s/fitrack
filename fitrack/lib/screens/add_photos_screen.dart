@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -44,9 +45,6 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
   /// Preloaded bytes for preview, keyed by photo type.
   final Map<String, Uint8List> _previewBytes = {};
 
-  /// Existing server photos for this date, keyed by photo type.
-  final Map<String, ProgressPhoto> _existing = {};
-
   bool _isSaving = false;
 
   final _picker = ImagePicker();
@@ -54,20 +52,6 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
   @override
   void initState() {
     super.initState();
-    _loadExisting();
-  }
-
-  /// Pre-populate slots from provider cache if the session already has photos.
-  void _loadExisting() {
-    final date = DateTime.parse(widget.date);
-    final session = ref
-        .read(photosByDateProvider(date))
-        .valueOrNull;
-    if (session != null) {
-      for (final p in session.photos) {
-        _existing[p.photoType] = p;
-      }
-    }
   }
 
   // ── Pick image ─────────────────────────────────────────────────────────────
@@ -163,7 +147,32 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
       await _pick(photoType, source);
     }
   }
+  // ── Preview ──────────────────────────────────────────────────────────────────
 
+  void _openPreview(Map<String, ProgressPhoto> existing, int initialIndex) {
+    final photos = _photoTypes
+        .map((t) => existing[t])
+        .where((p) => p?.imageUrl != null)
+        .cast<ProgressPhoto>()
+        .toList();
+    if (photos.isEmpty) return;
+    final type = _photoTypes[initialIndex];
+    final startIndex = photos.indexWhere((p) => p.photoType == type);
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Close',
+      barrierColor: Colors.black87,
+      transitionDuration: const Duration(milliseconds: 200),
+      transitionBuilder: (_, anim, __, child) =>
+          FadeTransition(opacity: anim, child: child),
+      pageBuilder: (ctx, _, __) => PhotoPreviewSheet(
+        photos: photos,
+        initialIndex: startIndex < 0 ? 0 : startIndex,
+        labels: _photoLabels,
+      ),
+    );
+  }
   // ── Save ───────────────────────────────────────────────────────────────────
 
   Future<void> _save() async {
@@ -224,6 +233,17 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
   @override
   Widget build(BuildContext context) {
     final hasAnySelected = _selected.isNotEmpty;
+    final date = DateTime.parse(widget.date);
+    final sessionAsync = ref.watch(photosByDateProvider(date));
+    final existing = <String, ProgressPhoto>{};
+    sessionAsync.whenData((session) {
+      if (session != null) {
+        for (final p in session.photos) {
+          existing[p.photoType] = p;
+        }
+      }
+    });
+    final hasExisting = existing.isNotEmpty;
 
     return Scaffold(
       appBar: FitrackAppBar(
@@ -254,32 +274,56 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
 
                   // ── Pose slots ─────────────────────────────────────────
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: _photoTypes.asMap().entries.map((entry) {
-                      final i = entry.key;
-                      final type = entry.value;
-                      return Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                            left: i == 0 ? 0 : 6,
-                            right: i == _photoTypes.length - 1 ? 0 : 6,
-                          ),
+                    children: [
+                      for (int i = 0; i < _photoTypes.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 10),
+                        Expanded(
                           child: _EditSlot(
-                            label: _photoLabels[type]!,
-                            previewBytes: _previewBytes[type],
-                            existingPhoto: _existing[type],
-                            onTap: () => _showPicker(type),
-                            onClear: _selected[type] != null
+                            label: _photoLabels[_photoTypes[i]]!,
+                            previewBytes: _previewBytes[_photoTypes[i]],
+                            existingPhoto: existing[_photoTypes[i]],
+                            onTap: () => _showPicker(_photoTypes[i]),
+                            onClear: _selected[_photoTypes[i]] != null
                                 ? () => setState(() {
-                                        _selected.remove(type);
-                                        _previewBytes.remove(type);
+                                        _selected.remove(_photoTypes[i]);
+                                        _previewBytes.remove(_photoTypes[i]);
                                       })
                                 : null,
                           ),
                         ),
-                      );
-                    }).toList(),
+                      ],
+                    ],
                   ),
+
+                  // ── Current photos (read-only) ─────────────────────────
+                  if (hasExisting) ...[
+                    const SizedBox(height: 28),
+                    const Text(
+                      'Current Photos',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        for (int i = 0; i < _photoTypes.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 10),
+                          Expanded(
+                            child: _ReadOnlySlot(
+                              label: _photoLabels[_photoTypes[i]]!,
+                              photo: existing[_photoTypes[i]],
+                              onTap: existing[_photoTypes[i]]?.imageUrl != null
+                                  ? () => _openPreview(existing, i)
+                                  : null,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -433,6 +477,80 @@ class _EditSlot extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Read-only slot (current saved photo) ─────────────────────────────────────
+
+class _ReadOnlySlot extends StatelessWidget {
+  final String label;
+  final ProgressPhoto? photo;
+  final VoidCallback? onTap;
+
+  const _ReadOnlySlot({required this.label, required this.photo, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: 3 / 4,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.divider, width: 1.5),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (photo?.imageUrl != null)
+              CachedNetworkImage(
+                imageUrl: photo!.imageUrl!,
+                fit: BoxFit.cover,
+                errorWidget: (_, __, ___) => const Center(
+                  child: Icon(LucideIcons.imageOff,
+                      color: AppTheme.textMuted, size: 28),
+                ),
+              )
+            else
+              const Center(
+                child: Icon(LucideIcons.imageMinus,
+                    color: AppTheme.textMuted, size: 28),
+              ),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(6, 18, 6, 8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.65),
+                    ],
+                  ),
+                ),
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
       ),
     );
   }

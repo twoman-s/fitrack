@@ -30,6 +30,7 @@ class _InAppCameraScreenState extends ConsumerState<InAppCameraScreen>
   /// URL of the last photo for this type — null means no prior photo.
   String? _ghostImageUrl;
   bool _ghostLoaded = false;
+  double _ghostOpacity = 0.20;
 
   @override
   void initState() {
@@ -190,11 +191,11 @@ class _InAppCameraScreenState extends ConsumerState<InAppCameraScreen>
           else if (_controller != null)
             _buildPreview(_controller!),
 
-          // ── Ghost overlay: last photo at 20% opacity ─────────────────
+          // ── Ghost overlay: last photo at variable opacity ─────────────
           if (cameraReady && _ghostLoaded && _ghostImageUrl != null)
             IgnorePointer(
               child: Opacity(
-                opacity: 0.20,
+                opacity: _ghostOpacity,
                 child: CachedNetworkImage(
                   imageUrl: _ghostImageUrl!,
                   fit: BoxFit.contain,
@@ -243,6 +244,40 @@ class _InAppCameraScreenState extends ConsumerState<InAppCameraScreen>
               ),
             ),
           ),
+
+          // ── Ghost opacity slider ────────────────────────────────────────
+          if (cameraReady && _ghostLoaded && _ghostImageUrl != null)
+            Positioned(
+              bottom: MediaQuery.of(context).padding.bottom + 110,
+              left: 24,
+              right: 24,
+              child: Row(
+                children: [
+                  const Icon(Icons.layers, color: Colors.white54, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 2,
+                        thumbShape: const RoundSliderThumbShape(
+                            enabledThumbRadius: 7),
+                        overlayShape: SliderComponentShape.noOverlay,
+                        activeTrackColor: Colors.white,
+                        inactiveTrackColor: Colors.white24,
+                        thumbColor: Colors.white,
+                      ),
+                      child: Slider(
+                        value: _ghostOpacity,
+                        min: 0.0,
+                        max: 0.6,
+                        onChanged: (v) =>
+                            setState(() => _ghostOpacity = v),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

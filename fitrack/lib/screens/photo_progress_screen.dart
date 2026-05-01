@@ -127,10 +127,28 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
             calendarStyle: CalendarStyle(
               selectedDecoration: BoxDecoration(
                 color: AppTheme.primary,
+                shape: BoxShape.rectangle,
                 borderRadius: BorderRadius.circular(8),
               ),
               todayDecoration: BoxDecoration(
                 color: Color(0xFF1A1A1A),
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              defaultDecoration: BoxDecoration(
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              weekendDecoration: BoxDecoration(
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              outsideDecoration: BoxDecoration(
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              disabledDecoration: BoxDecoration(
+                shape: BoxShape.rectangle,
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
@@ -269,26 +287,24 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
           ),
           const SizedBox(height: 16),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: _photoTypes.asMap().entries.map((entry) {
-              final i = entry.key;
-              final type = entry.value;
-              final photo = photoMap[type];
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    left: i == 0 ? 0 : 5,
-                    right: i == _photoTypes.length - 1 ? 0 : 5,
-                  ),
+            children: [
+              for (int i = 0; i < _photoTypes.length; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                Expanded(
                   child: _PhotoSlot(
-                    label: _photoLabels[type]!,
-                    photo: photo,
-                    isDeleting: _deleting[type] == true,
-                    onDelete: photo != null ? () => _deletePhoto(photo) : null,
+                    label: _photoLabels[_photoTypes[i]]!,
+                    photo: photoMap[_photoTypes[i]],
+                    isDeleting: _deleting[_photoTypes[i]] == true,
+                    onDelete: photoMap[_photoTypes[i]] != null
+                        ? () => _deletePhoto(photoMap[_photoTypes[i]]!)
+                        : null,
+                    onTap: photoMap[_photoTypes[i]]?.imageUrl != null
+                        ? () => _openPreview(photoMap, i)
+                        : null,
                   ),
                 ),
-              );
-            }).toList(),
+              ],
+            ],
           ),
         ],
       ),
@@ -296,6 +312,31 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
   }
 
   // ── Skeleton ─────────────────────────────────────────────────────────────────
+
+  void _openPreview(Map<String, ProgressPhoto?> photoMap, int initialIndex) {
+    final photos = _photoTypes
+        .map((t) => photoMap[t])
+        .where((p) => p?.imageUrl != null)
+        .cast<ProgressPhoto>()
+        .toList();
+    if (photos.isEmpty) return;
+    final type = _photoTypes[initialIndex];
+    final startIndex = photos.indexWhere((p) => p.photoType == type);
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Close',
+      barrierColor: Colors.black87,
+      transitionDuration: const Duration(milliseconds: 200),
+      transitionBuilder: (_, anim, __, child) =>
+          FadeTransition(opacity: anim, child: child),
+      pageBuilder: (ctx, _, __) => PhotoPreviewSheet(
+        photos: photos,
+        initialIndex: startIndex < 0 ? 0 : startIndex,
+        labels: _photoLabels,
+      ),
+    );
+  }
 
   Widget _buildSkeleton() {
     return SingleChildScrollView(
@@ -315,20 +356,14 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
           ),
           const SizedBox(height: 16),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: _photoTypes.asMap().entries.map((entry) {
-              final i = entry.key;
-              final type = entry.value;
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    left: i == 0 ? 0 : 5,
-                    right: i == _photoTypes.length - 1 ? 0 : 5,
-                  ),
-                  child: _SlotSkeleton(label: _photoLabels[type]!),
+            children: [
+              for (int i = 0; i < _photoTypes.length; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                Expanded(
+                  child: _SlotSkeleton(label: _photoLabels[_photoTypes[i]]!),
                 ),
-              );
-            }).toList(),
+              ],
+            ],
           ),
         ],
       ),
@@ -343,30 +378,34 @@ class _PhotoSlot extends StatelessWidget {
   final ProgressPhoto? photo;
   final bool isDeleting;
   final VoidCallback? onDelete;
+  final VoidCallback? onTap;
 
   const _PhotoSlot({
     required this.label,
     required this.photo,
     required this.isDeleting,
     this.onDelete,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return AspectRatio(
       aspectRatio: 3 / 4,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: photo == null ? AppTheme.divider : Colors.transparent,
-            width: 1.5,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: photo == null ? AppTheme.divider : Colors.transparent,
+              width: 1.5,
+            ),
           ),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          fit: StackFit.expand,
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            fit: StackFit.expand,
           children: [
             if (photo != null && photo!.imageUrl != null)
               CachedNetworkImage(
@@ -435,6 +474,7 @@ class _PhotoSlot extends StatelessWidget {
                 ),
               ),
           ],
+          ),
         ),
       ),
     );
@@ -497,6 +537,151 @@ class _SlotSkeleton extends StatelessWidget {
             color: const Color(0xFF2A2A2A),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Full-screen photo preview with swipe ─────────────────────────────────────
+
+class PhotoPreviewSheet extends StatefulWidget {
+  final List<ProgressPhoto> photos;
+  final int initialIndex;
+  final Map<String, String> labels;
+
+  const PhotoPreviewSheet({
+    required this.photos,
+    required this.initialIndex,
+    required this.labels,
+  });
+
+  @override
+  State<PhotoPreviewSheet> createState() => PhotoPreviewSheetState();
+}
+
+class PhotoPreviewSheetState extends State<PhotoPreviewSheet> {
+  late final PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Stack(
+        children: [
+          // ── Swipeable pages ──────────────────────────────────────
+          PageView.builder(
+            controller: _pageController,
+            itemCount: widget.photos.length,
+            onPageChanged: (i) => setState(() => _currentIndex = i),
+            itemBuilder: (ctx, i) {
+              final photo = widget.photos[i];
+              return InteractiveViewer(
+                child: Center(
+                  child: CachedNetworkImage(
+                    imageUrl: photo.imageUrl!,
+                    fit: BoxFit.contain,
+                    placeholder: (_, __) => const Center(
+                      child: CircularProgressIndicator(
+                          color: AppTheme.primary, strokeWidth: 2),
+                    ),
+                    errorWidget: (_, __, ___) => const Center(
+                      child: Icon(LucideIcons.imageOff,
+                          color: Colors.white54, size: 48),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // ── Label + indicator ────────────────────────────────────
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: EdgeInsets.fromLTRB(
+                  24, 32, 24, MediaQuery.of(context).padding.bottom + 20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.75),
+                  ],
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    widget.labels[widget.photos[_currentIndex].photoType] ?? '',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (widget.photos.length > 1) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(widget.photos.length, (i) {
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          width: i == _currentIndex ? 20 : 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: i == _currentIndex
+                                ? AppTheme.primary
+                                : Colors.white38,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+
+          // ── Close button ─────────────────────────────────────────
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 12,
+            right: 12,
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.primary, width: 1.5),
+                ),
+                child: const Icon(LucideIcons.x,
+                    color: AppTheme.primary, size: 18),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

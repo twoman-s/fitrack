@@ -11,7 +11,6 @@ import '../screens/home_dashboard.dart';
 import '../screens/add_weight_screen.dart';
 import '../screens/progress_graph_screen.dart';
 import '../screens/photo_progress_screen.dart';
-import '../screens/upload_photo_screen.dart';
 import '../screens/add_photos_screen.dart';
 import '../screens/compare_progress_screen.dart';
 import '../screens/heatmap_screen.dart';
@@ -125,10 +124,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/history',
         builder: (context, state) => const WeightHistoryScreen(),
-      ),
-      GoRoute(
-        path: '/upload-photo',
-        builder: (context, state) => const UploadPhotoScreen(),
       ),
       GoRoute(
         path: '/add-photos',
