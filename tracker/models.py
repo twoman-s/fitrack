@@ -1,4 +1,5 @@
 import os
+import time
 
 from django.conf import settings
 from django.db import models
@@ -48,7 +49,10 @@ class DailyWeightEntry(models.Model):
 # ---------------------------------------------------------------------------
 
 def progress_photo_upload_path(instance, filename):
-    """Generate upload path: progress_photos/<username>/<year>/<month>/<date>_<type>.<ext>"""
+    """Generate upload path: progress_photos/<username>/<year>/<month>/<date>_<type>_<unix_ts>.<ext>
+    The Unix timestamp ensures every upload has a unique filename/URL, preventing
+    stale images being served from HTTP or in-memory caches.
+    """
     session = instance.session
     username = session.user.username
     year = session.date.strftime('%Y')
@@ -56,7 +60,8 @@ def progress_photo_upload_path(instance, filename):
     date_str = session.date.strftime('%Y%m%d')
     ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else 'jpg'
     photo_type = getattr(instance, 'photo_type', 'photo').lower()
-    new_filename = f"{date_str}_{photo_type}.{ext}"
+    ts = int(time.time())
+    new_filename = f"{date_str}_{photo_type}_{ts}.{ext}"
     return os.path.join('progress_photos', username, year, month, new_filename)
 
 

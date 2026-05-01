@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../core/theme.dart';
 import '../core/error_handler.dart';
 import '../repositories/tracker_repository.dart';
@@ -83,10 +82,8 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
     setState(() => _deleting[photo.photoType] = true);
     try {
       await ref.read(trackerRepositoryProvider).deletePhoto(photo.id);
-      // Evict cached image so it doesn't reappear if the same slot is reused.
-      if (photo.imageUrl != null) {
-        await CachedNetworkImageProvider(photo.imageUrl!).evict();
-      }
+      // Clear Flutter's in-memory image cache so the deleted photo is gone immediately.
+      PaintingBinding.instance.imageCache.clear();
       ref.invalidate(dashboardProvider);
       _refresh();
     } catch (e) {
@@ -412,14 +409,15 @@ class _PhotoSlot extends StatelessWidget {
             fit: StackFit.expand,
           children: [
             if (photo != null && photo!.imageUrl != null)
-              CachedNetworkImage(
-                imageUrl: photo!.imageUrl!,
+              Image.network(
+                photo!.imageUrl!,
                 fit: BoxFit.cover,
-                placeholder: (_, __) => const Center(
-                  child: CircularProgressIndicator(
-                      color: AppTheme.primary, strokeWidth: 2),
-                ),
-                errorWidget: (_, __, ___) => const Center(
+                loadingBuilder: (_, child, progress) => progress == null
+                    ? child
+                    : const Center(
+                        child: CircularProgressIndicator(
+                            color: AppTheme.primary, strokeWidth: 2)),
+                errorBuilder: (_, __, ___) => const Center(
                   child: Icon(LucideIcons.imageOff,
                       color: AppTheme.textMuted, size: 32),
                 ),
@@ -595,14 +593,15 @@ class PhotoPreviewSheetState extends State<PhotoPreviewSheet> {
               final photo = widget.photos[i];
               return InteractiveViewer(
                 child: Center(
-                  child: CachedNetworkImage(
-                    imageUrl: photo.imageUrl!,
+                  child: Image.network(
+                    photo.imageUrl!,
                     fit: BoxFit.contain,
-                    placeholder: (_, __) => const Center(
-                      child: CircularProgressIndicator(
-                          color: AppTheme.primary, strokeWidth: 2),
-                    ),
-                    errorWidget: (_, __, ___) => const Center(
+                    loadingBuilder: (_, child, progress) => progress == null
+                        ? child
+                        : const Center(
+                            child: CircularProgressIndicator(
+                                color: AppTheme.primary, strokeWidth: 2)),
+                    errorBuilder: (_, __, ___) => const Center(
                       child: Icon(LucideIcons.imageOff,
                           color: Colors.white54, size: 48),
                     ),

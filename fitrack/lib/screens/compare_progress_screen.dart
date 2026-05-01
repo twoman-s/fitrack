@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../core/theme.dart';
 import '../repositories/tracker_repository.dart';
 import '../widgets/app_bar.dart';
@@ -213,10 +212,10 @@ class _ComparisonSliderState extends State<_ComparisonSlider> {
             children: [
               // ── "After" image (full width, behind) ────────────────────
               SizedBox.expand(
-                child: CachedNetworkImage(
-                  imageUrl: widget.afterUrl,
+                child: Image.network(
+                  widget.afterUrl,
                   fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => const ColoredBox(color: AppTheme.surface),
+                  errorBuilder: (_, __, ___) => const ColoredBox(color: AppTheme.surface),
                 ),
               ),
 
@@ -226,10 +225,10 @@ class _ComparisonSliderState extends State<_ComparisonSlider> {
                 child: SizedBox(
                   width: w,
                   height: h,
-                  child: CachedNetworkImage(
-                    imageUrl: widget.beforeUrl,
+                  child: Image.network(
+                    widget.beforeUrl,
                     fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) => const ColoredBox(color: AppTheme.surface),
+                    errorBuilder: (_, __, ___) => const ColoredBox(color: AppTheme.surface),
                   ),
                 ),
               ),

@@ -1,5 +1,4 @@
 import 'package:camera/camera.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -45,7 +44,10 @@ class _InAppCameraScreenState extends ConsumerState<InAppCameraScreen>
     final url = await repo.getLatestPhoto(photoType: widget.photoType);
     if (mounted) {
       setState(() {
-        _ghostImageUrl = url;
+        // Append timestamp to bust any HTTP cache on every camera open.
+        _ghostImageUrl = url != null
+            ? '$url?t=${DateTime.now().millisecondsSinceEpoch}'
+            : null;
         _ghostLoaded = true;
       });
     }
@@ -193,13 +195,17 @@ class _InAppCameraScreenState extends ConsumerState<InAppCameraScreen>
 
           // ── Ghost overlay: last photo at variable opacity ─────────────
           if (cameraReady && _ghostLoaded && _ghostImageUrl != null)
-            IgnorePointer(
-              child: Opacity(
-                opacity: _ghostOpacity,
-                child: CachedNetworkImage(
-                  imageUrl: _ghostImageUrl!,
-                  fit: BoxFit.contain,
-                  errorWidget: (_, __, ___) => const SizedBox.shrink(),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Opacity(
+                  opacity: _ghostOpacity,
+                  child: Image.network(
+                    _ghostImageUrl!,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
                 ),
               ),
             ),

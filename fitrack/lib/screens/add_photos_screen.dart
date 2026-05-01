@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -186,17 +185,7 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
     int uploaded = 0;
     String? lastError;
 
-    // Collect existing URLs for types being replaced so we can evict cache.
     final date = DateTime.parse(widget.date);
-    final session = ref.read(photosByDateProvider(date)).valueOrNull;
-    final oldUrls = <String>{};
-    if (session != null) {
-      for (final p in session.photos) {
-        if (_selected.containsKey(p.photoType) && p.imageUrl != null) {
-          oldUrls.add(p.imageUrl!);
-        }
-      }
-    }
 
     for (final entry in _selected.entries) {
       try {
@@ -217,11 +206,6 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
 
     if (!mounted) return;
 
-    // Evict old cached images so replacements show immediately.
-    for (final url in oldUrls) {
-      await CachedNetworkImageProvider(url).evict();
-    }
-
     setState(() => _isSaving = false);
 
     if (lastError != null && uploaded == 0) {
@@ -230,6 +214,8 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
     }
 
     // Invalidate providers so photos screen refreshes.
+    // Also clear Flutter's in-memory image cache so no stale images are shown.
+    PaintingBinding.instance.imageCache.clear();
     ref.invalidate(photosByDateProvider(date));
     ref.invalidate(dashboardProvider);
 
@@ -525,10 +511,10 @@ class _ReadOnlySlot extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             if (photo?.imageUrl != null)
-              CachedNetworkImage(
-                imageUrl: photo!.imageUrl!,
+              Image.network(
+                photo!.imageUrl!,
                 fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => const Center(
+                errorBuilder: (_, __, ___) => const Center(
                   child: Icon(LucideIcons.imageOff,
                       color: AppTheme.textMuted, size: 28),
                 ),
