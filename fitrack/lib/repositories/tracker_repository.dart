@@ -141,6 +141,19 @@ class TrackerRepository {
     await _client.delete(ApiConfig.photoDetail(id));
   }
 
+  /// Returns the URL of the most recent photo for [photoType], or null if none.
+  Future<String?> getLatestPhoto({required String photoType}) async {
+    try {
+      final response = await _client.get(
+        ApiConfig.photosLatest,
+        queryParameters: {'type': photoType},
+      );
+      return response.data['image_url'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<Map<String, String?>> comparePhotos({
     required String fromDate,
     required String toDate,

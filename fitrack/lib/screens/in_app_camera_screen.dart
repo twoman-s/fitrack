@@ -1,39 +1,53 @@
 import 'package:camera/camera.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-// Returns the overlay asset path for a given photo type.
-String _overlayAsset(String photoType) {
-  if (photoType.toUpperCase() == 'SIDE') {
-    return 'assets/camera_overlay/side_overlay.png';
-  }
-  return 'assets/camera_overlay/front_back_overlay.png';
-}
+import '../repositories/tracker_repository.dart';
 
-/// Full-screen in-app camera with a semi-transparent pose-guide overlay.
+/// Full-screen in-app camera.
+/// Shows the last uploaded photo of the same [photoType] at 20% opacity as a
+/// positioning guide. If no prior photo exists, no overlay is shown.
 ///
 /// Pops with the captured [XFile], or `null` if the user cancels.
-class InAppCameraScreen extends StatefulWidget {
+class InAppCameraScreen extends ConsumerStatefulWidget {
   final String photoType;
 
   const InAppCameraScreen({super.key, required this.photoType});
 
   @override
-  State<InAppCameraScreen> createState() => _InAppCameraScreenState();
+  ConsumerState<InAppCameraScreen> createState() => _InAppCameraScreenState();
 }
 
-class _InAppCameraScreenState extends State<InAppCameraScreen>
+class _InAppCameraScreenState extends ConsumerState<InAppCameraScreen>
     with WidgetsBindingObserver {
   CameraController? _controller;
   bool _isInitializing = true;
   bool _isCapturing = false;
   String? _error;
 
+  /// URL of the last photo for this type — null means no prior photo.
+  String? _ghostImageUrl;
+  bool _ghostLoaded = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initCamera();
+    _loadGhost();
+  }
+
+  Future<void> _loadGhost() async {
+    final repo = ref.read(trackerRepositoryProvider);
+    final url = await repo.getLatestPhoto(photoType: widget.photoType);
+    if (mounted) {
+      setState(() {
+        _ghostImageUrl = url;
+        _ghostLoaded = true;
+      });
+    }
   }
 
   Future<void> _initCamera() async {
@@ -144,6 +158,8 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
 
   @override
   Widget build(BuildContext context) {
+    final cameraReady = !_isInitializing && _error == null && _controller != null;
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -151,9 +167,7 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
         children: [
           // ── Camera preview ──────────────────────────────────────────────
           if (_isInitializing)
-            const Center(
-              child: CircularProgressIndicator(color: Colors.white),
-            )
+            const Center(child: CircularProgressIndicator(color: Colors.white))
           else if (_error != null)
             Center(
               child: Padding(
@@ -176,14 +190,15 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
           else if (_controller != null)
             _buildPreview(_controller!),
 
-          // ── Pose-guide overlay ──────────────────────────────────────────
-          if (!_isInitializing && _error == null)
+          // ── Ghost overlay: last photo at 20% opacity ─────────────────
+          if (cameraReady && _ghostLoaded && _ghostImageUrl != null)
             IgnorePointer(
               child: Opacity(
-                opacity: 0.45,
-                child: Image.asset(
-                  _overlayAsset(widget.photoType),
+                opacity: 0.20,
+                child: CachedNetworkImage(
+                  imageUrl: _ghostImageUrl!,
                   fit: BoxFit.contain,
+                  errorWidget: (_, __, ___) => const SizedBox.shrink(),
                 ),
               ),
             ),
@@ -235,9 +250,7 @@ class _InAppCameraScreenState extends State<InAppCameraScreen>
 
   Widget _buildPreview(CameraController controller) {
     final size = MediaQuery.of(context).size;
-    final scale =
-        1 / (controller.value.aspectRatio * size.aspectRatio);
-
+    final scale = 1 / (controller.value.aspectRatio * size.aspectRatio);
     return Transform.scale(
       scale: scale < 1 ? 1 : scale,
       child: Center(child: CameraPreview(controller)),

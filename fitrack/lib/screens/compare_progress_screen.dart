@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:before_after/before_after.dart';
+import '../core/theme.dart';
 import '../repositories/tracker_repository.dart';
 import '../widgets/app_bar.dart';
 
@@ -130,27 +130,197 @@ class _CompareProgressScreenState extends ConsumerState<CompareProgressScreen> {
           const SizedBox(height: 16),
 
           Expanded(
-            child: _isLoading 
+            child: _isLoading
               ? const Center(child: CircularProgressIndicator(color: Color(0xFF22C55E)))
               : (_images['from_image'] != null && _images['to_image'] != null)
                 ? Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(16),
-                      child: BeforeAfter(
-                        before: CachedNetworkImage(imageUrl: _images['from_image']!, fit: BoxFit.cover),
-                        after: CachedNetworkImage(imageUrl: _images['to_image']!, fit: BoxFit.cover),
-                        thumbColor: const Color(0xFF22C55E),
-                        trackColor: Colors.white,
+                      child: _ComparisonSlider(
+                        beforeUrl: _images['from_image']!,
+                        afterUrl: _images['to_image']!,
+                        beforeLabel: DateFormat('MMM d').format(_fromDate),
+                        afterLabel: DateFormat('MMM d').format(_toDate),
                       ),
                     ),
                   )
-                : const Center(
-                    child: Text('Missing photos for one or both dates.', style: TextStyle(color: Color(0xFF94A3B8))),
+                : Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(LucideIcons.imageMinus, color: AppTheme.textMuted, size: 48),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'No photos found for one or both dates.',
+                          style: TextStyle(color: AppTheme.textMuted),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
                   ),
           ),
           const SizedBox(height: 24),
         ],
+      ),
+    );
+  }
+}
+
+// ── Custom comparison slider ───────────────────────────────────────────────────
+
+class _ComparisonSlider extends StatefulWidget {
+  final String beforeUrl;
+  final String afterUrl;
+  final String beforeLabel;
+  final String afterLabel;
+
+  const _ComparisonSlider({
+    required this.beforeUrl,
+    required this.afterUrl,
+    required this.beforeLabel,
+    required this.afterLabel,
+  });
+
+  @override
+  State<_ComparisonSlider> createState() => _ComparisonSliderState();
+}
+
+class _ComparisonSliderState extends State<_ComparisonSlider> {
+  double _position = 0.5; // 0.0 = all before, 1.0 = all after
+
+  void _onDrag(DragUpdateDetails details, double width) {
+    setState(() {
+      _position = (_position + details.delta.dx / width).clamp(0.02, 0.98);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
+        final dividerX = w * _position;
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragUpdate: (d) => _onDrag(d, w),
+          onTapDown: (d) => setState(() {
+            _position = (d.localPosition.dx / w).clamp(0.02, 0.98);
+          }),
+          child: Stack(
+            children: [
+              // ── "After" image (full width, behind) ────────────────────
+              SizedBox.expand(
+                child: CachedNetworkImage(
+                  imageUrl: widget.afterUrl,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, __, ___) => const ColoredBox(color: AppTheme.surface),
+                ),
+              ),
+
+              // ── "Before" image (clipped to left of divider) ───────────
+              ClipRect(
+                clipper: _LeftClipper(dividerX),
+                child: SizedBox(
+                  width: w,
+                  height: h,
+                  child: CachedNetworkImage(
+                    imageUrl: widget.beforeUrl,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) => const ColoredBox(color: AppTheme.surface),
+                  ),
+                ),
+              ),
+
+              // ── Divider line ──────────────────────────────────────────
+              Positioned(
+                left: dividerX - 1,
+                top: 0,
+                bottom: 0,
+                child: Container(
+                  width: 2,
+                  color: Colors.white,
+                ),
+              ),
+
+              // ── Drag handle ───────────────────────────────────────────
+              Positioned(
+                left: dividerX - 20,
+                top: h / 2 - 20,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.swap_horiz,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+
+              // ── "Before" label ────────────────────────────────────────
+              Positioned(
+                left: 12,
+                bottom: 12,
+                child: _Label(widget.beforeLabel),
+              ),
+
+              // ── "After" label ─────────────────────────────────────────
+              Positioned(
+                right: 12,
+                bottom: 12,
+                child: _Label(widget.afterLabel),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LeftClipper extends CustomClipper<Rect> {
+  final double dividerX;
+  const _LeftClipper(this.dividerX);
+
+  @override
+  Rect getClip(Size size) => Rect.fromLTWH(0, 0, dividerX, size.height);
+
+  @override
+  bool shouldReclip(_LeftClipper old) => old.dividerX != dividerX;
+}
+
+class _Label extends StatelessWidget {
+  final String text;
+  const _Label(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

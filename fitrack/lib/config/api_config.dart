@@ -1,9 +1,7 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-
 class ApiConfig {
   static String get baseUrl {
     // If not set, fallback to localhost
-    return dotenv.env['API_BASE_URL'] ?? 'https://fitrack.oopsops.in/api';
+    return 'https://fitrack.oopsops.in/api';
   }
 
   // Auth endpoints
@@ -19,6 +17,7 @@ class ApiConfig {
   static const String photos = '/photos/';
   static const String photosUpload = '/photos/upload/';
   static const String photosCompare = '/photos/compare/';
+  static const String photosLatest = '/photos/latest/';
   static String photoDetail(int id) => '/photos/$id/';
   static const String heatmap = '/heatmap/';
   static const String goal = '/goal/';

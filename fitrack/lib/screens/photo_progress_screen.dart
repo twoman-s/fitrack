@@ -127,11 +127,11 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
             calendarStyle: const CalendarStyle(
               selectedDecoration: BoxDecoration(
                 color: AppTheme.primary,
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(8),
               ),
               todayDecoration: BoxDecoration(
                 color: Color(0xFF1A1A1A),
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(8),
               ),
             ),
           ),
@@ -235,15 +235,35 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
                   ],
                 ),
               ),
-              AppButton.outlined(
-                label: 'Add / Replace',
-                icon: LucideIcons.pencil,
-                expand: false,
-                compact: true,
-                onPressed: () async {
+              GestureDetector(
+                onTap: () async {
                   await context.push('/add-photos', extra: dateStr);
                   _refresh();
                 },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(LucideIcons.pencil,
+                          size: 13, color: AppTheme.primary),
+                      SizedBox(width: 6),
+                      Text(
+                        'Edit',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -333,73 +353,90 @@ class _PhotoSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        AspectRatio(
-          aspectRatio: 3 / 4,
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: photo == null ? AppTheme.divider : Colors.transparent,
-                width: 1.5,
-              ),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (photo != null && photo!.imageUrl != null)
-                  CachedNetworkImage(
-                    imageUrl: photo!.imageUrl!,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => const Center(
-                      child: CircularProgressIndicator(
-                          color: AppTheme.primary, strokeWidth: 2),
-                    ),
-                    errorWidget: (_, __, ___) => const Center(
-                      child: Icon(LucideIcons.imageOff,
-                          color: AppTheme.textMuted, size: 32),
-                    ),
-                  )
-                else
-                  const Center(
-                    child: Icon(LucideIcons.imageMinus,
-                        color: AppTheme.textMuted, size: 28),
-                  ),
-                if (isDeleting)
-                  Container(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    child: const Center(
-                      child: CircularProgressIndicator(
-                          color: AppTheme.primary, strokeWidth: 2),
-                    ),
-                  ),
-                if (photo != null && !isDeleting && onDelete != null)
-                  Positioned(
-                    top: 6,
-                    right: 6,
-                    child: _OverlayIconButton(
-                      icon: LucideIcons.trash2,
-                      onTap: onDelete!,
-                      tooltip: 'Delete',
-                      destructive: true,
-                    ),
-                  ),
-              ],
-            ),
+    return AspectRatio(
+      aspectRatio: 3 / 4,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: photo == null ? AppTheme.divider : Colors.transparent,
+            width: 1.5,
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(
-              color: AppTheme.textMuted,
-              fontSize: 13,
-              fontWeight: FontWeight.w500),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (photo != null && photo!.imageUrl != null)
+              CachedNetworkImage(
+                imageUrl: photo!.imageUrl!,
+                fit: BoxFit.cover,
+                placeholder: (_, __) => const Center(
+                  child: CircularProgressIndicator(
+                      color: AppTheme.primary, strokeWidth: 2),
+                ),
+                errorWidget: (_, __, ___) => const Center(
+                  child: Icon(LucideIcons.imageOff,
+                      color: AppTheme.textMuted, size: 32),
+                ),
+              )
+            else
+              const Center(
+                child: Icon(LucideIcons.imageMinus,
+                    color: AppTheme.textMuted, size: 28),
+              ),
+            // ── Label gradient overlay ──────────────────────────────
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding:
+                    const EdgeInsets.fromLTRB(6, 18, 6, 8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.65),
+                    ],
+                  ),
+                ),
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            if (isDeleting)
+              Container(
+                color: Colors.black.withValues(alpha: 0.55),
+                child: const Center(
+                  child: CircularProgressIndicator(
+                      color: AppTheme.primary, strokeWidth: 2),
+                ),
+              ),
+            if (photo != null && !isDeleting && onDelete != null)
+              Positioned(
+                top: 6,
+                right: 6,
+                child: _OverlayIconButton(
+                  icon: LucideIcons.trash2,
+                  onTap: onDelete!,
+                  tooltip: 'Delete',
+                  destructive: true,
+                ),
+              ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -451,23 +488,16 @@ class _SlotSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        AspectRatio(
-          aspectRatio: 3 / 4,
-          child: SkeletonShimmer(
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF2A2A2A),
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
+    return AspectRatio(
+      aspectRatio: 3 / 4,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: SkeletonShimmer(
+          child: Container(
+            color: const Color(0xFF2A2A2A),
           ),
         ),
-        const SizedBox(height: 8),
-        Text(label,
-            style: const TextStyle(color: AppTheme.textMuted, fontSize: 13)),
-      ],
+      ),
     );
   }
 }

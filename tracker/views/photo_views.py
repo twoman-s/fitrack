@@ -126,3 +126,23 @@ class PhotoDeleteView(APIView):
             session.delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PhotoLatestView(APIView):
+    """Return the URL of the most recent photo for a given type."""
+
+    def get(self, request):
+        photo_type = request.query_params.get('type', 'FRONT').upper()
+
+        photo = (
+            ProgressPhoto.objects
+            .filter(session__user=request.user, photo_type=photo_type)
+            .select_related('session')
+            .order_by('-session__date')
+            .first()
+        )
+
+        if photo is None:
+            return Response({'image_url': None})
+
+        return Response({'image_url': request.build_absolute_uri(photo.image.url)})

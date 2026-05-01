@@ -1,5 +1,5 @@
 from .weight_views import DailyWeightView
-from .photo_views import PhotoUploadView, PhotosByDateView, PhotoCompareView, PhotoDeleteView
+from .photo_views import PhotoUploadView, PhotosByDateView, PhotoCompareView, PhotoDeleteView, PhotoLatestView
 from .heatmap_views import HeatmapView
 from .dashboard_views import DashboardView
 from .goal_views import WeightGoalView, WeightGoalDetailView, WeightGoalHistoryView

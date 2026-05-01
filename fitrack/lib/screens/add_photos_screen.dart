@@ -327,100 +327,113 @@ class _EditSlot extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasLocal = previewBytes != null;
 
-    return Column(
-      children: [
-        AspectRatio(
-          aspectRatio: 3 / 4,
-          child: GestureDetector(
-            onTap: onTap,
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: hasLocal
-                      ? AppTheme.primary
-                      : AppTheme.divider,
-                  width: hasLocal ? 2 : 1.5,
-                ),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // ── Preview ──────────────────────────────────────────
-                  if (hasLocal)
-                    Image.memory(previewBytes!, fit: BoxFit.cover)
-                  else if (existingPhoto?.imageUrl != null)
-                    Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Image.network(
-                          existingPhoto!.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Center(
-                            child: Icon(LucideIcons.imageOff,
-                                color: AppTheme.textMuted, size: 28),
-                          ),
-                        ),
-                        // Dim to indicate it will be replaced on tap
-                        Container(color: Colors.black.withValues(alpha: 0.35)),
-                        const Center(
-                          child: Icon(LucideIcons.pencil,
-                              color: Colors.white, size: 22),
-                        ),
-                      ],
-                    )
-                  else
-                    const Center(
-                      child: Icon(LucideIcons.plus,
-                          color: AppTheme.textMuted, size: 28),
-                    ),
-
-                  // ── Clear button (local selection only) ──────────────
-                  if (hasLocal && onClear != null)
-                    Positioned(
-                      top: 6,
-                      right: 6,
-                      child: GestureDetector(
-                        onTap: onClear,
-                        child: Container(
-                          width: 26,
-                          height: 26,
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.65),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Icon(LucideIcons.x,
-                              size: 14, color: Colors.white),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+    return AspectRatio(
+      aspectRatio: 3 / 4,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: hasLocal ? AppTheme.primary : AppTheme.divider,
+              width: hasLocal ? 2 : 1.5,
             ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppTheme.textMuted,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // ── Preview ──────────────────────────────────────────
+              if (hasLocal)
+                Image.memory(previewBytes!, fit: BoxFit.cover)
+              else if (existingPhoto?.imageUrl != null)
+                Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.network(
+                      existingPhoto!.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const Center(
+                        child: Icon(LucideIcons.imageOff,
+                            color: AppTheme.textMuted, size: 28),
+                      ),
+                    ),
+                    Container(color: Colors.black.withValues(alpha: 0.35)),
+                    const Center(
+                      child: Icon(LucideIcons.pencil,
+                          color: Colors.white, size: 22),
+                    ),
+                  ],
+                )
+              else
+                const Center(
+                  child: Icon(LucideIcons.plus,
+                      color: AppTheme.textMuted, size: 28),
+                ),
+
+              // ── Label gradient overlay ────────────────────────────
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(6, 18, 6, 8),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.65),
+                      ],
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (hasLocal) ...[
+                        const SizedBox(width: 4),
+                        const Icon(LucideIcons.check,
+                            size: 11, color: AppTheme.primary),
+                      ],
+                    ],
+                  ),
+                ),
               ),
-            ),
-            if (hasLocal) ...[
-              const SizedBox(width: 4),
-              const Icon(LucideIcons.check,
-                  size: 12, color: AppTheme.primary),
+
+              // ── Clear button (local selection only) ──────────────
+              if (hasLocal && onClear != null)
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: GestureDetector(
+                    onTap: onClear,
+                    child: Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.65),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(LucideIcons.x,
+                          size: 14, color: Colors.white),
+                    ),
+                  ),
+                ),
             ],
-          ],
+          ),
         ),
-      ],
+      ),
     );
   }
 }
