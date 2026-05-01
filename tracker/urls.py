@@ -5,6 +5,7 @@ from tracker.views import (
     PhotoUploadView,
     PhotosByDateView,
     PhotoCompareView,
+    PhotoDeleteView,
     HeatmapView,
     DashboardView,
     WeightGoalView,
@@ -24,6 +25,7 @@ urlpatterns = [
     path('photos/upload/', PhotoUploadView.as_view(), name='photo_upload'),
     path('photos/', PhotosByDateView.as_view(), name='photos_by_date'),
     path('photos/compare/', PhotoCompareView.as_view(), name='photo_compare'),
+    path('photos/<int:pk>/', PhotoDeleteView.as_view(), name='photo_delete'),
 
     # Heatmap
     path('heatmap/', HeatmapView.as_view(), name='heatmap'),

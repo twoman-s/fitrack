@@ -121,6 +121,26 @@ class TrackerRepository {
     return ProgressPhoto.fromJson(response.data);
   }
 
+  Future<ProgressPhoto> uploadPhotoBytes({
+    required String date,
+    required String photoType,
+    required List<int> bytes,
+    String filename = 'photo.jpg',
+  }) async {
+    final formData = FormData.fromMap({
+      'date': date,
+      'photo_type': photoType,
+      'image': MultipartFile.fromBytes(bytes, filename: filename),
+    });
+
+    final response = await _client.post(ApiConfig.photosUpload, data: formData);
+    return ProgressPhoto.fromJson(response.data);
+  }
+
+  Future<void> deletePhoto(int id) async {
+    await _client.delete(ApiConfig.photoDetail(id));
+  }
+
   Future<Map<String, String?>> comparePhotos({
     required String fromDate,
     required String toDate,

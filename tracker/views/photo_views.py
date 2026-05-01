@@ -103,3 +103,26 @@ class PhotoCompareView(APIView):
             return request.build_absolute_uri(photo.image.url)
         except (ProgressPhotoSession.DoesNotExist, ProgressPhoto.DoesNotExist):
             return None
+
+
+class PhotoDeleteView(APIView):
+    """Delete a single progress photo by primary key."""
+
+    def delete(self, request, pk):
+        try:
+            photo = ProgressPhoto.objects.select_related('session').get(
+                pk=pk, session__user=request.user
+            )
+        except ProgressPhoto.DoesNotExist:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        session = photo.session
+        # Remove the image file from storage
+        photo.image.delete(save=False)
+        photo.delete()
+
+        # Clean up the session if it has no more photos
+        if not session.photos.exists():
+            session.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)

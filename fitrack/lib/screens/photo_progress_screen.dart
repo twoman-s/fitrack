@@ -5,20 +5,38 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../core/theme.dart';
+import '../core/error_handler.dart';
 import '../repositories/tracker_repository.dart';
 import '../models/dashboard.dart';
+import '../providers/dashboard_provider.dart';
 import '../widgets/app_bar.dart';
 import '../widgets/app_button.dart';
+import '../widgets/skeleton.dart';
 
-final photosByDateProvider = FutureProvider.family<PhotoSession?, DateTime>((ref, date) async {
+// ── Provider ─────────────────────────────────────────────────────────────────
+
+final photosByDateProvider =
+    FutureProvider.family.autoDispose<PhotoSession?, DateTime>((ref, date) async {
   final repo = ref.watch(trackerRepositoryProvider);
   final dateStr = DateFormat('yyyy-MM-dd').format(date);
   try {
     return await repo.getPhotosByDate(dateStr);
-  } catch (e) {
-    return null; // No photos for this date
+  } catch (_) {
+    return null;
   }
 });
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const _photoTypes = ['FRONT', 'SIDE', 'BACK'];
+const _photoLabels = {
+  'FRONT': 'Front',
+  'SIDE': 'Side',
+  'BACK': 'Back',
+};
+
+// ── Screen ────────────────────────────────────────────────────────────────────
 
 class PhotoProgressScreen extends ConsumerStatefulWidget {
   const PhotoProgressScreen({super.key});
@@ -30,6 +48,49 @@ class PhotoProgressScreen extends ConsumerStatefulWidget {
 class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
   DateTime _selectedDate = DateTime.now();
   DateTime _focusedDay = DateTime.now();
+  final Map<String, bool> _deleting = {};
+
+  void _refresh() => ref.invalidate(photosByDateProvider(_selectedDate));
+
+  Future<void> _deletePhoto(ProgressPhoto photo) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Delete Photo',
+          style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          'Delete this ${_photoLabels[photo.photoType] ?? photo.photoType} photo? This cannot be undone.',
+          style: const TextStyle(color: AppTheme.textMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: AppTheme.textMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete', style: TextStyle(color: Color(0xFFEF4444))),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _deleting[photo.photoType] = true);
+    try {
+      await ref.read(trackerRepositoryProvider).deletePhoto(photo.id);
+      ref.invalidate(dashboardProvider);
+      _refresh();
+    } catch (e) {
+      if (mounted) ErrorHandler.showSnackBar(context, ErrorHandler.getErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _deleting.remove(photo.photoType));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +101,7 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
         title: 'Photos',
         actions: [
           IconButton(
-            icon: const Icon(LucideIcons.arrowLeftRight),
+            icon: const Icon(LucideIcons.arrowLeftRight, size: 20),
             onPressed: () => context.push('/compare'),
           ),
         ],
@@ -65,7 +126,7 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
             ),
             calendarStyle: const CalendarStyle(
               selectedDecoration: BoxDecoration(
-                color: Color(0xFF22C55E),
+                color: AppTheme.primary,
                 shape: BoxShape.circle,
               ),
               todayDecoration: BoxDecoration(
@@ -77,95 +138,335 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
           const Divider(color: Color(0xFF1A1A1A), height: 1),
           Expanded(
             child: sessionAsync.when(
+              loading: () => _buildSkeleton(),
+              error: (_, __) => _buildEmpty(),
               data: (session) {
-                if (session == null || session.photos.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(LucideIcons.cameraOff, size: 64, color: Color(0xFF1A1A1A)),
-                        const SizedBox(height: 16),
-                        const Text('No photos for this date', style: TextStyle(color: Color(0xFF94A3B8))),
-                        const SizedBox(height: 24),
-                        AppButton(
-                          label: 'Add Photos',
-                          icon: LucideIcons.plus,
-                          onPressed: () => context.push('/upload-photo'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                // Map photos by type
-                final photoMap = {
-                  for (var p in session.photos) p.photoType: p.imageUrl
-                };
-
-                return SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).padding.bottom + 84),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        DateFormat('MMMM d, yyyy').format(_selectedDate),
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        children: [
-                          Expanded(child: _PhotoCard(title: 'Front', url: photoMap['FRONT'])),
-                          const SizedBox(width: 12),
-                          Expanded(child: _PhotoCard(title: 'Side', url: photoMap['SIDE'])),
-                          const SizedBox(width: 12),
-                          Expanded(child: _PhotoCard(title: 'Back', url: photoMap['BACK'])),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
+                final hasPhotos = session != null && session.photos.isNotEmpty;
+                return hasPhotos ? _buildPhotos(session) : _buildEmpty();
               },
-              loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF22C55E))),
-              error: (err, stack) => Center(child: Text('Error: $err')),
             ),
           ),
         ],
       ),
+    );
+  }
 
+  // ── Empty state ─────────────────────────────────────────────────────────────
+
+  Widget _buildEmpty() {
+    final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(LucideIcons.camera,
+                  size: 32, color: AppTheme.textMuted),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'No photos yet',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              DateFormat('MMMM d, yyyy').format(_selectedDate),
+              style: const TextStyle(fontSize: 14, color: AppTheme.textMuted),
+            ),
+            const SizedBox(height: 32),
+            AppButton(
+              label: 'Add Photos',
+              icon: LucideIcons.plus,
+              onPressed: () async {
+                await context.push('/add-photos', extra: dateStr);
+                _refresh();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Photos view ─────────────────────────────────────────────────────────────
+
+  Widget _buildPhotos(PhotoSession session) {
+    final photoMap = {for (final p in session.photos) p.photoType: p};
+    final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+          16, 16, 16, MediaQuery.of(context).padding.bottom + 84),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      DateFormat('MMMM d, yyyy').format(_selectedDate),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${session.photos.length} of 3 photos',
+                      style: const TextStyle(
+                          fontSize: 13, color: AppTheme.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+              AppButton.outlined(
+                label: 'Add / Replace',
+                icon: LucideIcons.pencil,
+                expand: false,
+                compact: true,
+                onPressed: () async {
+                  await context.push('/add-photos', extra: dateStr);
+                  _refresh();
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: _photoTypes.asMap().entries.map((entry) {
+              final i = entry.key;
+              final type = entry.value;
+              final photo = photoMap[type];
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: i == 0 ? 0 : 5,
+                    right: i == _photoTypes.length - 1 ? 0 : 5,
+                  ),
+                  child: _PhotoSlot(
+                    label: _photoLabels[type]!,
+                    photo: photo,
+                    isDeleting: _deleting[type] == true,
+                    onDelete: photo != null ? () => _deletePhoto(photo) : null,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Skeleton ─────────────────────────────────────────────────────────────────
+
+  Widget _buildSkeleton() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SkeletonShimmer(
+            child: Container(
+              height: 24,
+              width: 180,
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2A2A),
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: _photoTypes.asMap().entries.map((entry) {
+              final i = entry.key;
+              final type = entry.value;
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: i == 0 ? 0 : 5,
+                    right: i == _photoTypes.length - 1 ? 0 : 5,
+                  ),
+                  child: _SlotSkeleton(label: _photoLabels[type]!),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _PhotoCard extends StatelessWidget {
-  final String title;
-  final String? url;
+// ── Photo slot (read-only with delete) ───────────────────────────────────────
 
-  const _PhotoCard({required this.title, this.url});
+class _PhotoSlot extends StatelessWidget {
+  final String label;
+  final ProgressPhoto? photo;
+  final bool isDeleting;
+  final VoidCallback? onDelete;
+
+  const _PhotoSlot({
+    required this.label,
+    required this.photo,
+    required this.isDeleting,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         AspectRatio(
-          aspectRatio: 3/4,
+          aspectRatio: 3 / 4,
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF111111),
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: photo == null ? AppTheme.divider : Colors.transparent,
+                width: 1.5,
+              ),
             ),
             clipBehavior: Clip.antiAlias,
-            child: url != null
-                ? CachedNetworkImage(
-                    imageUrl: url!,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (photo != null && photo!.imageUrl != null)
+                  CachedNetworkImage(
+                    imageUrl: photo!.imageUrl!,
                     fit: BoxFit.cover,
-                    placeholder: (context, url) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                    errorWidget: (context, url, error) => const Icon(LucideIcons.imageOff, color: Color(0xFF94A3B8)),
+                    placeholder: (_, __) => const Center(
+                      child: CircularProgressIndicator(
+                          color: AppTheme.primary, strokeWidth: 2),
+                    ),
+                    errorWidget: (_, __, ___) => const Center(
+                      child: Icon(LucideIcons.imageOff,
+                          color: AppTheme.textMuted, size: 32),
+                    ),
                   )
-                : const Icon(LucideIcons.user, size: 48, color: Color(0xFF1A1A1A)),
+                else
+                  const Center(
+                    child: Icon(LucideIcons.imageMinus,
+                        color: AppTheme.textMuted, size: 28),
+                  ),
+                if (isDeleting)
+                  Container(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                          color: AppTheme.primary, strokeWidth: 2),
+                    ),
+                  ),
+                if (photo != null && !isDeleting && onDelete != null)
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: _OverlayIconButton(
+                      icon: LucideIcons.trash2,
+                      onTap: onDelete!,
+                      tooltip: 'Delete',
+                      destructive: true,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 8),
-        Text(title, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14)),
+        Text(
+          label,
+          style: const TextStyle(
+              color: AppTheme.textMuted,
+              fontSize: 13,
+              fontWeight: FontWeight.w500),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Overlay icon button ───────────────────────────────────────────────────────
+
+class _OverlayIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final String tooltip;
+  final bool destructive;
+
+  const _OverlayIconButton({
+    required this.icon,
+    required this.onTap,
+    required this.tooltip,
+    this.destructive = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            size: 15,
+            color: destructive ? const Color(0xFFEF4444) : Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Skeleton slot ─────────────────────────────────────────────────────────────
+
+class _SlotSkeleton extends StatelessWidget {
+  final String label;
+  const _SlotSkeleton({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        AspectRatio(
+          aspectRatio: 3 / 4,
+          child: SkeletonShimmer(
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2A2A),
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(label,
+            style: const TextStyle(color: AppTheme.textMuted, fontSize: 13)),
       ],
     );
   }

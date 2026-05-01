@@ -48,12 +48,16 @@ class DailyWeightEntry(models.Model):
 # ---------------------------------------------------------------------------
 
 def progress_photo_upload_path(instance, filename):
-    """Generate upload path: progress_photos/<username>/<year>/<month>/<filename>"""
+    """Generate upload path: progress_photos/<username>/<year>/<month>/<date>_<type>.<ext>"""
     session = instance.session
     username = session.user.username
     year = session.date.strftime('%Y')
     month = session.date.strftime('%m')
-    return os.path.join('progress_photos', username, year, month, filename)
+    date_str = session.date.strftime('%Y%m%d')
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else 'jpg'
+    photo_type = getattr(instance, 'photo_type', 'photo').lower()
+    new_filename = f"{date_str}_{photo_type}.{ext}"
+    return os.path.join('progress_photos', username, year, month, new_filename)
 
 
 class ProgressPhotoSession(models.Model):

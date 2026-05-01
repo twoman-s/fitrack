@@ -25,8 +25,14 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
   }
 
   Future<void> _checkToken() async {
-    final hasToken = await _storageService.hasToken();
-    state = hasToken ? AppAuthState.authenticated : AppAuthState.unauthenticated;
+    try {
+      final hasToken = await _storageService.hasToken();
+      state = hasToken ? AppAuthState.authenticated : AppAuthState.unauthenticated;
+    } catch (e) {
+      // flutter_secure_storage can throw on first launch or after reinstall.
+      // Fall back to unauthenticated so the app never stays on the splash screen.
+      state = AppAuthState.unauthenticated;
+    }
   }
 
   Future<void> login(String username, String password) async {

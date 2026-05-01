@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../screens/splash_screen.dart';
 import '../screens/login_screen.dart';
@@ -11,6 +12,7 @@ import '../screens/add_weight_screen.dart';
 import '../screens/progress_graph_screen.dart';
 import '../screens/photo_progress_screen.dart';
 import '../screens/upload_photo_screen.dart';
+import '../screens/add_photos_screen.dart';
 import '../screens/compare_progress_screen.dart';
 import '../screens/heatmap_screen.dart';
 import '../screens/profile_screen.dart';
@@ -127,6 +129,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/upload-photo',
         builder: (context, state) => const UploadPhotoScreen(),
+      ),
+      GoRoute(
+        path: '/add-photos',
+        builder: (context, state) {
+          final date = state.extra as String? ??
+              DateFormat('yyyy-MM-dd').format(DateTime.now());
+          return AddPhotosScreen(date: date);
+        },
       ),
       GoRoute(
         path: '/compare',

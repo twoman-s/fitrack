@@ -19,6 +19,7 @@ class ApiConfig {
   static const String photos = '/photos/';
   static const String photosUpload = '/photos/upload/';
   static const String photosCompare = '/photos/compare/';
+  static String photoDetail(int id) => '/photos/$id/';
   static const String heatmap = '/heatmap/';
   static const String goal = '/goal/';
   static const String goalHistory = '/goal/history/';

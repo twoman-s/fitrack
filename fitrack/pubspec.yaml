@@ -29,6 +29,7 @@ dependencies:
   # UI & Utils
   fl_chart: ^0.66.0
   image_picker: ^1.0.7
+  camera: ^0.12.0
   intl: any
   flutter_dotenv: ^5.1.0
   cached_network_image: ^3.3.1
@@ -50,3 +51,4 @@ flutter:
   assets:
     - .env
     - assets/images/
+    - assets/camera_overlay/

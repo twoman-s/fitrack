@@ -1,3 +1,6 @@
+import 'dart:ui';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,9 +10,29 @@ import 'core/router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Load environment variables for API URL
-  await dotenv.load(fileName: ".env");
+
+  // Catch Flutter framework errors and print them so adb logcat shows them
+  // in release builds (they're visible under tag "flutter" / "E/flutter").
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('[FlutterError] ${details.exceptionAsString()}');
+    debugPrint(details.stack.toString());
+  };
+
+  // Catch errors outside the Flutter framework (dart:async, isolate, etc.).
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('[PlatformError] $error');
+    debugPrint(stack.toString());
+    return true;
+  };
+
+  // Load environment variables — fail gracefully so release builds don't
+  // get stuck if the asset is missing (ApiConfig has a built-in fallback URL).
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (_) {
+    // .env not found or unreadable; ApiConfig.baseUrl fallback will be used.
+  }
   
   runApp(
     const ProviderScope(
