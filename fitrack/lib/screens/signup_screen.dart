@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/auth_provider.dart';
 import '../core/error_handler.dart';
+import '../widgets/app_bar.dart';
+import '../widgets/app_button.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -36,10 +37,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
     try {
       await ref.read(authStateProvider.notifier).signup(username, password);
-      if (mounted) {
-        ErrorHandler.showSnackBar(context, 'Account created successfully. Please login.', isError: false);
-        context.go('/login');
-      }
+      // Router redirect handles navigation to /onboarding.
     } catch (e) {
       if (mounted) {
         ErrorHandler.showSnackBar(context, ErrorHandler.getErrorMessage(e));
@@ -54,12 +52,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(LucideIcons.arrowLeft),
-          onPressed: () => context.pop(),
-        ),
-      ),
+      appBar: const FitrackAppBar(),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -109,18 +102,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 ),
               ),
               const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _handleSignup,
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Sign Up'),
+              AppButton(
+                label: 'Sign Up',
+                isLoading: _isLoading,
+                onPressed: _handleSignup,
               ),
             ],
           ),

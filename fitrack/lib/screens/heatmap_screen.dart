@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../repositories/tracker_repository.dart';
 import '../models/weight.dart';
+import '../widgets/app_bar.dart';
 
 final heatmapProvider = FutureProvider.family<List<HeatmapEntry>, DateTime>((ref, date) {
   final repo = ref.watch(trackerRepositoryProvider);
@@ -26,9 +27,7 @@ class _HeatmapScreenState extends ConsumerState<HeatmapScreen> {
     final heatmapAsync = ref.watch(heatmapProvider(_focusedDay));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Calendar Heatmap'),
-      ),
+      appBar: const FitrackAppBar(title: 'Activity'),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -110,10 +109,10 @@ class _HeatmapScreenState extends ConsumerState<HeatmapScreen> {
         color = const Color(0xFF22C55E); // Bright green (both)
         break;
       case 2:
-        color = const Color(0xFF22C55E).withOpacity(0.6); // Photo only
+        color = const Color(0xFF22C55E).withValues(alpha: 0.6); // Photo only
         break;
       case 1:
-        color = const Color(0xFF22C55E).withOpacity(0.3); // Weight only
+        color = const Color(0xFF22C55E).withValues(alpha: 0.3); // Weight only
         break;
       default:
         color = const Color(0xFF1A1A1A); // Empty
@@ -142,8 +141,8 @@ class _HeatmapScreenState extends ConsumerState<HeatmapScreen> {
     Color color;
     switch (level) {
       case 3: color = const Color(0xFF22C55E); break;
-      case 2: color = const Color(0xFF22C55E).withOpacity(0.6); break;
-      case 1: color = const Color(0xFF22C55E).withOpacity(0.3); break;
+      case 2: color = const Color(0xFF22C55E).withValues(alpha: 0.6); break;
+      case 1: color = const Color(0xFF22C55E).withValues(alpha: 0.3); break;
       default: color = const Color(0xFF1A1A1A);
     }
     

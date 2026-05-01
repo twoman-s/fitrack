@@ -8,6 +8,8 @@ class StorageService {
   
   static const String _accessTokenKey = 'access_token';
   static const String _refreshTokenKey = 'refresh_token';
+  static const String _onboardingSeenKey = 'onboarding_seen';
+  static const String _usernameKey = 'username';
 
   Future<void> saveTokens({required String access, required String refresh}) async {
     await _secureStorage.write(key: _accessTokenKey, value: access);
@@ -27,8 +29,29 @@ class StorageService {
     await _secureStorage.delete(key: _refreshTokenKey);
   }
 
+  Future<void> saveUsername(String username) async {
+    await _secureStorage.write(key: _usernameKey, value: username);
+  }
+
+  Future<String?> getUsername() async {
+    return await _secureStorage.read(key: _usernameKey);
+  }
+
+  Future<void> clearUsername() async {
+    await _secureStorage.delete(key: _usernameKey);
+  }
+
   Future<bool> hasToken() async {
     final token = await getAccessToken();
     return token != null && token.isNotEmpty;
+  }
+
+  Future<bool> hasSeenOnboarding() async {
+    final val = await _secureStorage.read(key: _onboardingSeenKey);
+    return val == 'true';
+  }
+
+  Future<void> markOnboardingSeen() async {
+    await _secureStorage.write(key: _onboardingSeenKey, value: 'true');
   }
 }

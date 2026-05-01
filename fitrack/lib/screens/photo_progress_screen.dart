@@ -7,6 +7,8 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../repositories/tracker_repository.dart';
 import '../models/dashboard.dart';
+import '../widgets/app_bar.dart';
+import '../widgets/app_button.dart';
 
 final photosByDateProvider = FutureProvider.family<PhotoSession?, DateTime>((ref, date) async {
   final repo = ref.watch(trackerRepositoryProvider);
@@ -34,8 +36,8 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
     final sessionAsync = ref.watch(photosByDateProvider(_selectedDate));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Photos'),
+      appBar: FitrackAppBar(
+        title: 'Photos',
         actions: [
           IconButton(
             icon: const Icon(LucideIcons.arrowLeftRight),
@@ -85,10 +87,10 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
                         const SizedBox(height: 16),
                         const Text('No photos for this date', style: TextStyle(color: Color(0xFF94A3B8))),
                         const SizedBox(height: 24),
-                        ElevatedButton.icon(
+                        AppButton(
+                          label: 'Add Photos',
+                          icon: LucideIcons.plus,
                           onPressed: () => context.push('/upload-photo'),
-                          icon: const Icon(LucideIcons.plus),
-                          label: const Text('Add Photos'),
                         ),
                       ],
                     ),
@@ -101,7 +103,7 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
                 };
 
                 return SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).padding.bottom + 84),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -129,11 +131,7 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/upload-photo'),
-        backgroundColor: const Color(0xFF22C55E),
-        child: const Icon(LucideIcons.camera, color: Colors.white),
-      ),
+
     );
   }
 }

@@ -7,6 +7,7 @@ from .photo_serializers import (
 )
 from .heatmap_serializers import HeatmapEntrySerializer
 from .dashboard_serializers import DashboardSerializer
+from .goal_serializers import WeightGoalSerializer
 
 __all__ = [
     'DailyWeightEntrySerializer',
@@ -17,4 +18,5 @@ __all__ = [
     'PhotoCompareSerializer',
     'HeatmapEntrySerializer',
     'DashboardSerializer',
+    'WeightGoalSerializer',
 ]

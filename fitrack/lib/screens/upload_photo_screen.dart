@@ -9,6 +9,8 @@ import '../repositories/tracker_repository.dart';
 import '../providers/dashboard_provider.dart';
 import '../core/error_handler.dart';
 import 'photo_progress_screen.dart';
+import '../widgets/app_bar.dart';
+import '../widgets/app_button.dart';
 
 class UploadPhotoScreen extends ConsumerStatefulWidget {
   const UploadPhotoScreen({super.key});
@@ -82,9 +84,7 @@ class _UploadPhotoScreenState extends ConsumerState<UploadPhotoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Take Photo'),
-      ),
+      appBar: const FitrackAppBar(title: 'Take Photo'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -182,7 +182,7 @@ class _UploadPhotoScreenState extends ConsumerState<UploadPhotoScreen> {
                     : Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(LucideIcons.user, size: 80, color: const Color(0xFF1A1A1A).withOpacity(0.5)),
+                          Icon(LucideIcons.user, size: 80, color: const Color(0xFF1A1A1A).withValues(alpha: 0.5)),
                           const SizedBox(height: 16),
                           const Text('Position yourself in the frame', style: TextStyle(color: Color(0xFF94A3B8))),
                         ],
@@ -196,32 +196,28 @@ class _UploadPhotoScreenState extends ConsumerState<UploadPhotoScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
+                    child: AppButton.outlined(
+                      label: 'Gallery',
+                      icon: LucideIcons.image,
+                      color: const Color(0xFF4B5563),
                       onPressed: () => _pickImage(ImageSource.gallery),
-                      icon: const Icon(LucideIcons.image),
-                      label: const Text('Gallery'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        side: const BorderSide(color: Color(0xFF1A1A1A)),
-                      ),
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: ElevatedButton.icon(
+                    child: AppButton(
+                      label: 'Camera',
+                      icon: LucideIcons.camera,
                       onPressed: () => _pickImage(ImageSource.camera),
-                      icon: const Icon(LucideIcons.camera),
-                      label: const Text('Camera'),
                     ),
                   ),
                 ],
               ),
             ] else ...[
-              ElevatedButton(
-                onPressed: _isLoading ? null : _uploadImage,
-                child: _isLoading
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Upload Photo'),
+              AppButton(
+                label: 'Upload Photo',
+                isLoading: _isLoading,
+                onPressed: _uploadImage,
               ),
             ],
           ],

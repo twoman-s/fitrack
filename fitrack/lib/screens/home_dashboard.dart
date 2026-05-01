@@ -7,7 +7,26 @@ import 'package:go_router/go_router.dart';
 import '../providers/dashboard_provider.dart';
 import '../screens/weight_history_screen.dart';
 import '../widgets/daily_weight_card.dart';
+import '../widgets/app_bar.dart';
+import '../widgets/app_button.dart';
 import '../models/weight.dart';
+import '../widgets/skeleton.dart';
+
+String _greeting() {
+  final hour = DateTime.now().hour;
+  if (hour >= 5 && hour < 12) return 'Good morning';
+  if (hour >= 12 && hour < 17) return 'Good afternoon';
+  if (hour >= 17 && hour < 21) return 'Good evening';
+  return 'Good night';
+}
+
+String _greetingEmoji() {
+  final hour = DateTime.now().hour;
+  if (hour >= 5 && hour < 12) return '☀️';
+  if (hour >= 12 && hour < 17) return '👋';
+  if (hour >= 17 && hour < 21) return '🌆';
+  return '🌙';
+}
 
 class HomeDashboard extends ConsumerWidget {
   const HomeDashboard({super.key});
@@ -33,15 +52,7 @@ class HomeDashboard extends ConsumerWidget {
     final dashboardAsync = ref.watch(dashboardProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Fitrack'),
-        actions: [
-          IconButton(
-            icon: const Icon(LucideIcons.bell),
-            onPressed: () {},
-          ),
-        ],
-      ),
+      appBar: const FitrackAppBar(isHome: true),
       body: dashboardAsync.when(
         data: (data) {
           final todayStr = DateFormat('MMM d, yyyy').format(DateTime.now());
@@ -53,13 +64,21 @@ class HomeDashboard extends ConsumerWidget {
             },
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16.0),
+              padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).padding.bottom + 84),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Good morning, Alex! 👋',
-                    style: TextStyle(
+                  Text(
+                    'Hey there, ',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Text(
+                    '${_greeting()}! ${_greetingEmoji()}',
+                    style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -294,12 +313,12 @@ class HomeDashboard extends ConsumerWidget {
                                           showingIndicators: morningSpots.map((s) => morningSpots.indexOf(s)).toList(),
                                           isCurved: true,
                                           color: const Color(0xFF22C55E),
-                                          barWidth: 3,
+                                          barWidth: 1.5,
                                           isStrokeCapRound: true,
                                           dotData: const FlDotData(show: true),
                                           belowBarData: BarAreaData(
                                             show: true,
-                                            color: const Color(0xFF22C55E).withOpacity(0.1),
+                                            color: const Color(0xFF22C55E).withValues(alpha: 0.1),
                                           ),
                                         ),
                                       if (eveningSpots.isNotEmpty)
@@ -308,7 +327,7 @@ class HomeDashboard extends ConsumerWidget {
                                           showingIndicators: eveningSpots.map((s) => eveningSpots.indexOf(s)).toList(),
                                           isCurved: true,
                                           color: const Color(0xFF3B82F6),
-                                          barWidth: 3,
+                                          barWidth: 1.5,
                                           isStrokeCapRound: true,
                                           dashArray: [5, 5],
                                           dotData: const FlDotData(show: true),
@@ -332,9 +351,10 @@ class HomeDashboard extends ConsumerWidget {
                         'Recent History',
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      TextButton(
+                      AppButton.ghost(
+                        label: 'View All',
+                        expand: false,
                         onPressed: () => context.push('/history'),
-                        child: const Text('View All'),
                       ),
                     ],
                   ),
@@ -351,8 +371,6 @@ class HomeDashboard extends ConsumerWidget {
                       
                       return Column(
                         children: recent.map((entry) {
-                          final dateStr = DateFormat('MMM d, yyyy').format(DateTime.parse(entry.date));
-                          
                           return DailyWeightCard(
                             date: entry.date,
                             morningWeight: entry.morningWeight,
@@ -384,7 +402,7 @@ class HomeDashboard extends ConsumerWidget {
             ),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF22C55E))),
+        loading: () => const _DashboardSkeleton(),
         error: (err, stack) => Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -396,9 +414,9 @@ class HomeDashboard extends ConsumerWidget {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 16),
-              ElevatedButton(
+              AppButton(
+                label: 'Retry',
                 onPressed: () => ref.refresh(dashboardProvider.future),
-                child: const Text('Retry'),
               ),
             ],
           ),
@@ -455,6 +473,121 @@ class _WeightCard extends StatelessWidget {
                 Text(time, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Dashboard skeleton ────────────────────────────────────────────────────────
+class _DashboardSkeleton extends StatelessWidget {
+  const _DashboardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SkeletonShimmer(
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(
+            16, 16, 16, MediaQuery.of(context).padding.bottom + 84),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Greeting
+            const SkeletonBox(width: 90, height: 14),
+            const SizedBox(height: 8),
+            const SkeletonBox(width: 200, height: 24),
+            const SizedBox(height: 8),
+            const SkeletonBox(width: 100, height: 13),
+            const SizedBox(height: 24),
+
+            // Weight cards row
+            Row(
+              children: const [
+                Expanded(child: SkeletonBox(height: 110, radius: 14)),
+                SizedBox(width: 16),
+                Expanded(child: SkeletonBox(height: 110, radius: 14)),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Progress overview card
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF111111),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      SkeletonBox(width: 130, height: 16),
+                      SkeletonBox(width: 70, height: 26, radius: 8),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      SkeletonBox(width: 70, height: 32),
+                      SkeletonBox(width: 70, height: 32),
+                      SkeletonBox(width: 70, height: 32),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  // Chart area
+                  const SkeletonBox(height: 140, radius: 8),
+                  const SizedBox(height: 12),
+                  // X-axis labels
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: const [
+                      SkeletonBox(width: 36, height: 10),
+                      SkeletonBox(width: 36, height: 10),
+                      SkeletonBox(width: 36, height: 10),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Recent History heading
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                SkeletonBox(width: 120, height: 18),
+                SkeletonBox(width: 56, height: 14),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // History rows
+            ...List.generate(3, (_) => const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  SkeletonBox(width: 40, height: 40, radius: 20),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SkeletonBox(height: 15),
+                        SizedBox(height: 6),
+                        SkeletonBox(width: 120, height: 12),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  SkeletonBox(width: 20, height: 20, radius: 10),
+                ],
+              ),
+            )),
           ],
         ),
       ),

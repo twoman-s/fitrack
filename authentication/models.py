@@ -1,12 +1,15 @@
 from django.contrib.auth.models import AbstractUser
+from django.db import models
 
 
 class User(AbstractUser):
-    """Custom user model – only username, password, and date_joined."""
+    """Custom user model – username, password, and optional name/email."""
 
     first_name = None
     last_name = None
-    email = None
+
+    name = models.CharField(max_length=150, blank=True, default='')
+    email = models.EmailField(blank=True, default='')
 
     REQUIRED_FIELDS = []
 

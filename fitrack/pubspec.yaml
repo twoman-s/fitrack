@@ -36,6 +36,7 @@ dependencies:
   before_after: any
   lucide_icons: any
   flutter_svg: ^2.0.10
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:
@@ -48,3 +49,4 @@ flutter:
   uses-material-design: true
   assets:
     - .env
+    - assets/images/

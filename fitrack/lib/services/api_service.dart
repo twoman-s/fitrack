@@ -37,8 +37,14 @@ class ApiService {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          // Do not add token for auth endpoints
-          if (!options.path.contains('/auth/')) {
+          // Skip token only for public auth endpoints (login, signup, token refresh)
+          final unauthenticated = [
+            ApiConfig.login,
+            ApiConfig.signup,
+            ApiConfig.refresh,
+          ];
+          final isPublic = unauthenticated.any((p) => options.path == p);
+          if (!isPublic) {
             final token = await _storageService.getAccessToken();
             if (token != null) {
               options.headers['Authorization'] = 'Bearer $token';
@@ -47,7 +53,9 @@ class ApiService {
           return handler.next(options);
         },
         onError: (DioException error, handler) async {
-          if (error.response?.statusCode == 401 && !error.requestOptions.path.contains('/auth/login')) {
+          final path = error.requestOptions.path;
+          final isPublic = path == ApiConfig.login || path == ApiConfig.signup || path == ApiConfig.refresh;
+          if (error.response?.statusCode == 401 && !isPublic) {
             // Token might be expired, try to refresh
             final success = await _refreshToken();
             if (success) {

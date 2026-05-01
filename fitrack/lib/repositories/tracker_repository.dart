@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/api_config.dart';
 import '../models/dashboard.dart';
 import '../models/weight.dart';
+import '../models/progress.dart';
+import '../models/stats.dart';
 import '../services/api_service.dart';
 
 final trackerRepositoryProvider = Provider((ref) {
@@ -142,5 +144,18 @@ class TrackerRepository {
     return (response.data as List)
         .map((e) => HeatmapEntry.fromJson(e))
         .toList();
+  }
+
+  Future<ProgressData> getProgress(String period) async {
+    final response = await _client.get(
+      ApiConfig.progress,
+      queryParameters: {'period': period},
+    );
+    return ProgressData.fromJson(response.data);
+  }
+
+  Future<StatsData> getStats() async {
+    final response = await _client.get(ApiConfig.stats);
+    return StatsData.fromJson(response.data);
   }
 }

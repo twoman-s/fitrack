@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Brand Colors
@@ -29,8 +30,10 @@ class AppTheme {
       dividerColor: divider,
       appBarTheme: const AppBarTheme(
         backgroundColor: background,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         elevation: 0,
-        centerTitle: true,
+        centerTitle: false,
         titleTextStyle: TextStyle(
           color: textPrimary,
           fontSize: 18,
@@ -88,7 +91,7 @@ class AppTheme {
         type: BottomNavigationBarType.fixed,
         elevation: 8,
       ),
-      textTheme: const TextTheme(
+      textTheme: GoogleFonts.outfitTextTheme(const TextTheme(
         displayLarge: TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
         displayMedium: TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
         displaySmall: TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
@@ -99,7 +102,7 @@ class AppTheme {
         bodyLarge: TextStyle(color: textPrimary),
         bodyMedium: TextStyle(color: textPrimary),
         bodySmall: TextStyle(color: textMuted),
-      ),
+      )),
     );
   }
 }

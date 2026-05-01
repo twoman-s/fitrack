@@ -10,3 +10,6 @@ media/
 *.egg-info/
 dist/
 build/
+
+# Flutter app — not needed in backend image
+fitrack/

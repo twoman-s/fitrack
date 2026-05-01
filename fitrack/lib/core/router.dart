@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,15 +15,49 @@ import '../screens/compare_progress_screen.dart';
 import '../screens/heatmap_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/weight_history_screen.dart';
+import '../screens/onboarding/onboarding_goal_screen.dart';
+import '../screens/onboarding/onboarding_motivation_screen.dart';
+import '../screens/goal_edit_screen.dart';
+import '../screens/goals_list_screen.dart';
 import '../models/weight.dart';
+import '../models/goal.dart';
 import '../providers/auth_provider.dart';
 
+/// Bridges Riverpod auth state into a [ChangeNotifier] that GoRouter can
+/// listen to via [GoRouter.refreshListenable]. This keeps the GoRouter
+/// instance stable — it is never recreated on auth-state changes, which
+/// means in-flight navigations (e.g. context.go after login) are not lost.
+class _RouterNotifier extends ChangeNotifier {
+  final Ref _ref;
+  AppAuthState _authState = AppAuthState.initializing;
+  bool _showOnboarding = false;
+
+  _RouterNotifier(this._ref) {
+    _authState = _ref.read(authStateProvider);
+    _showOnboarding = _ref.read(showOnboardingProvider);
+
+    _ref.listen<AppAuthState>(authStateProvider, (_, next) {
+      _authState = next;
+      notifyListeners();
+    });
+    // Update silently — auth-state listener already triggers the redirect.
+    _ref.listen<bool>(showOnboardingProvider, (_, next) {
+      _showOnboarding = next;
+    });
+  }
+
+  AppAuthState get authState => _authState;
+  bool get showOnboarding => _showOnboarding;
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
+  final notifier = _RouterNotifier(ref);
 
   return GoRouter(
     initialLocation: '/',
+    refreshListenable: notifier,
     redirect: (context, state) {
+      final authState = notifier.authState;
       final isLoggingIn = state.uri.path == '/login' || state.uri.path == '/signup';
       final isSplash = state.uri.path == '/';
 
@@ -35,7 +70,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       if (authState == AppAuthState.authenticated) {
-        if (isLoggingIn || isSplash) return '/home';
+        final isOnboarding = state.uri.path.startsWith('/onboarding');
+        if ((isLoggingIn || isSplash) && !isOnboarding) {
+          return notifier.showOnboarding ? '/onboarding' : '/home';
+        }
       }
       return null;
     },
@@ -97,6 +135,36 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/heatmap',
         builder: (context, state) => const HeatmapScreen(),
+      ),
+
+      // Onboarding
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingGoalScreen(),
+      ),
+      GoRoute(
+        path: '/onboarding/motivation',
+        builder: (context, state) {
+          final goalType = (state.extra as String?) ?? 'LOSE';
+          return OnboardingMotivationScreen(goalType: goalType);
+        },
+      ),
+
+      // Goals
+      GoRoute(
+        path: '/goals',
+        builder: (context, state) => const GoalsListScreen(),
+      ),
+      GoRoute(
+        path: '/goal/new',
+        builder: (context, state) => const GoalEditScreen(),
+      ),
+      GoRoute(
+        path: '/goal/:id/edit',
+        builder: (context, state) {
+          final goal = state.extra as WeightGoal?;
+          return GoalEditScreen(existingGoal: goal);
+        },
       ),
     ],
   );

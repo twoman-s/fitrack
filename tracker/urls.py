@@ -7,6 +7,11 @@ from tracker.views import (
     PhotoCompareView,
     HeatmapView,
     DashboardView,
+    WeightGoalView,
+    WeightGoalDetailView,
+    WeightGoalHistoryView,
+    ProgressView,
+    StatsView,
 )
 
 app_name = 'tracker'
@@ -25,4 +30,15 @@ urlpatterns = [
 
     # Dashboard
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
+
+    # Goal
+    path('goal/', WeightGoalView.as_view(), name='weight_goal'),
+    path('goal/history/', WeightGoalHistoryView.as_view(), name='weight_goal_history'),
+    path('goal/<int:pk>/', WeightGoalDetailView.as_view(), name='weight_goal_detail'),
+
+    # Progress
+    path('progress/', ProgressView.as_view(), name='progress'),
+
+    # Stats
+    path('stats/', StatsView.as_view(), name='stats'),
 ]

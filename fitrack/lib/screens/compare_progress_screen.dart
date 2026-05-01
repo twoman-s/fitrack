@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:before_after/before_after.dart';
 import '../repositories/tracker_repository.dart';
+import '../widgets/app_bar.dart';
 
 class CompareProgressScreen extends ConsumerStatefulWidget {
   const CompareProgressScreen({super.key});
@@ -83,9 +84,7 @@ class _CompareProgressScreenState extends ConsumerState<CompareProgressScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Compare'),
-      ),
+      appBar: const FitrackAppBar(title: 'Compare'),
       body: Column(
         children: [
           Padding(

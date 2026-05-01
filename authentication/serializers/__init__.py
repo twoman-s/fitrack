@@ -1,3 +1,3 @@
-from .auth_serializers import SignupSerializer
+from .auth_serializers import SignupSerializer, FitrackTokenObtainPairSerializer
 
-__all__ = ['SignupSerializer']
+__all__ = ['SignupSerializer', 'FitrackTokenObtainPairSerializer']

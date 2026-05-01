@@ -96,7 +96,7 @@ class DailyWeightCard extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: Colors.white.withOpacity(0.06),
+              color: Colors.white.withValues(alpha: 0.06),
               width: 1,
             ),
           ),
@@ -128,7 +128,7 @@ class DailyWeightCard extends StatelessWidget {
                   Text(
                     _formatDate(),
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
+                      color: Colors.white.withValues(alpha: 0.5),
                       fontSize: 13,
                     ),
                   ),
@@ -136,7 +136,7 @@ class DailyWeightCard extends StatelessWidget {
                   Text(
                     _getSubtitle(),
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.35),
+                      color: Colors.white.withValues(alpha: 0.35),
                       fontSize: 12,
                     ),
                     maxLines: 1,
@@ -149,7 +149,7 @@ class DailyWeightCard extends StatelessWidget {
             // Right chevron
             Icon(
               LucideIcons.chevronRight,
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               size: 20,
             ),
           ],

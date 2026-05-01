@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/auth_provider.dart';
 import '../core/error_handler.dart';
+import '../widgets/app_button.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -31,9 +32,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       await ref.read(authStateProvider.notifier).login(username, password);
-      if (mounted) {
-        context.go('/home');
-      }
+      // Router redirect handles navigation to /home or /onboarding.
     } catch (e) {
       if (mounted) {
         ErrorHandler.showSnackBar(context, ErrorHandler.getErrorMessage(e));
@@ -105,18 +104,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _handleLogin,
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Login'),
+              AppButton(
+                label: 'Login',
+                isLoading: _isLoading,
+                onPressed: _handleLogin,
               ),
               const SizedBox(height: 24),
               Row(
@@ -126,9 +117,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     "Don't have an account?",
                     style: TextStyle(color: Color(0xFF94A3B8)),
                   ),
-                  TextButton(
+                  AppButton.ghost(
+                    label: 'Sign Up',
+                    expand: false,
                     onPressed: () => context.push('/signup'),
-                    child: const Text('Sign Up'),
                   ),
                 ],
               ),

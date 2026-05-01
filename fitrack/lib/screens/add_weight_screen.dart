@@ -7,7 +7,8 @@ import 'package:intl/intl.dart';
 import '../repositories/tracker_repository.dart';
 import '../providers/dashboard_provider.dart';
 import '../core/error_handler.dart';
-
+import '../widgets/app_bar.dart';
+import '../widgets/app_button.dart';
 import '../models/weight.dart';
 
 class AddWeightScreen extends ConsumerStatefulWidget {
@@ -125,7 +126,7 @@ class _AddWeightScreenState extends ConsumerState<AddWeightScreen> {
           time?.format(context) ?? 'Select',
           style: TextStyle(
             fontSize: 16,
-            color: time == null ? Colors.white.withOpacity(0.4) : Colors.white,
+            color: time == null ? Colors.white.withValues(alpha: 0.4) : Colors.white,
           ),
         ),
       ),
@@ -236,8 +237,8 @@ class _AddWeightScreenState extends ConsumerState<AddWeightScreen> {
     final isEditing = widget.entry != null;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(isEditing ? 'Edit Weight' : 'Add Weight'),
+      appBar: FitrackAppBar(
+        title: isEditing ? 'Edit Weight' : 'Add Weight',
         actions: isEditing
             ? [
                 IconButton(
@@ -384,15 +385,10 @@ class _AddWeightScreenState extends ConsumerState<AddWeightScreen> {
               ),
             ),
             const SizedBox(height: 48),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _saveWeight,
-              child: _isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Text('Save'),
+            AppButton(
+              label: 'Save',
+              isLoading: _isLoading,
+              onPressed: _saveWeight,
             ),
           ],
         ),

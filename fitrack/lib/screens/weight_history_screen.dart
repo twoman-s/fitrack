@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import '../repositories/tracker_repository.dart';
 import '../models/weight.dart';
 import '../widgets/daily_weight_card.dart';
+import '../widgets/app_bar.dart';
+import '../widgets/app_button.dart';
 
 class WeightHistoryFilters {
   final DateTime? startDate;
@@ -190,8 +192,8 @@ class _WeightHistoryScreenState extends ConsumerState<WeightHistoryScreen> {
     final history = ref.watch(weightHistoryProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('History'),
+      appBar: FitrackAppBar(
+        title: 'History',
         actions: [
           IconButton(
             icon: Stack(
@@ -234,13 +236,10 @@ class _WeightHistoryScreenState extends ConsumerState<WeightHistoryScreen> {
                                 style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
                               ),
                               const Spacer(),
-                              TextButton(
+                              AppButton.ghost(
+                                label: 'Clear All',
+                                compact: true,
                                 onPressed: () => ref.read(weightHistoryProvider.notifier).clearFilters(),
-                                style: TextButton.styleFrom(
-                                  visualDensity: VisualDensity.compact,
-                                  foregroundColor: const Color(0xFF22C55E),
-                                ),
-                                child: const Text('Clear All'),
                               ),
                             ],
                           ),
@@ -298,15 +297,15 @@ class _WeightHistoryScreenState extends ConsumerState<WeightHistoryScreen> {
           ),
           const SizedBox(height: 24),
           if (noFilters)
-            ElevatedButton.icon(
+            AppButton(
+              label: 'Log Weight',
+              icon: LucideIcons.plus,
               onPressed: () => context.push('/add-weight').then((_) => ref.read(weightHistoryProvider.notifier).fetchInitial()),
-              icon: const Icon(LucideIcons.plus),
-              label: const Text('Log Weight'),
             )
           else
-            TextButton(
+            AppButton.ghost(
+              label: 'Clear Filters',
               onPressed: () => ref.read(weightHistoryProvider.notifier).clearFilters(),
-              child: const Text('Clear Filters', style: TextStyle(color: Color(0xFF22C55E))),
             ),
         ],
       ),
@@ -377,12 +376,13 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
                 'Filter History',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
               ),
-              TextButton(
+              AppButton.ghost(
+                label: 'Reset',
+                color: Colors.redAccent,
                 onPressed: () {
                   ref.read(weightHistoryProvider.notifier).clearFilters();
                   Navigator.pop(context);
                 },
-                child: const Text('Reset', style: TextStyle(color: Color(0xFFEF4444))),
               ),
             ],
           ),
@@ -456,17 +456,12 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
           
           const SizedBox(height: 32),
           
-          ElevatedButton(
+          AppButton(
+            label: 'Apply Filters',
             onPressed: () {
               ref.read(weightHistoryProvider.notifier).updateFilters(_tempFilters);
               Navigator.pop(context);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF22C55E),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Apply Filters', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
           ),
         ],
       ),

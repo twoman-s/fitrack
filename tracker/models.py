@@ -152,3 +152,37 @@ class WorkoutCheckin(models.Model):
         if self.photo_logged:
             return 2
         return 0
+
+
+# ---------------------------------------------------------------------------
+# Weight Goal
+# ---------------------------------------------------------------------------
+
+class WeightGoal(models.Model):
+    """User weight goals — multiple per user, at most one active at a time."""
+
+    class GoalType(models.TextChoices):
+        LOSE = 'LOSE', 'Lose Weight'
+        GAIN = 'GAIN', 'Gain Weight'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='weight_goals',
+    )
+    goal_type = models.CharField(max_length=4, choices=GoalType.choices)
+    target_weight = models.DecimalField(max_digits=5, decimal_places=2)
+    start_date = models.DateField()
+    target_date = models.DateField()
+    is_active = models.BooleanField(default=True, db_index=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'weight_goals'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        status = 'active' if self.is_active else 'completed'
+        return f"{self.user.username} – {self.goal_type} → {self.target_weight} kg ({status})"

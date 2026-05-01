@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 class ErrorHandler {
@@ -20,12 +21,23 @@ class ErrorHandler {
   }
 
   static String getErrorMessage(dynamic error) {
-    if (error is Exception) {
-      // Basic Dio error handling
-      if (error.toString().contains('DioException')) {
-        // Can be improved based on specific dio errors
-        return 'Network error occurred. Please check your connection.';
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map) {
+        // Pick the first field message or the 'detail' field
+        final detail = data['detail'] ?? data.values.first;
+        if (detail is List && detail.isNotEmpty) return detail.first.toString();
+        return detail.toString();
       }
+      if (error.response?.statusCode == 409) {
+        return 'You already have an active goal. Complete it first.';
+      }
+      if (error.type == DioExceptionType.connectionError ||
+          error.type == DioExceptionType.connectionTimeout) {
+        return 'Network error. Please check your connection.';
+      }
+    }
+    if (error is Exception) {
       return error.toString();
     }
     return 'An unexpected error occurred.';

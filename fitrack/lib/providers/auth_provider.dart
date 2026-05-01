@@ -4,18 +4,23 @@ import '../services/storage_service.dart';
 
 enum AppAuthState { initializing, authenticated, unauthenticated }
 
+/// True when the user should be routed to onboarding immediately after login/signup.
+final showOnboardingProvider = StateProvider<bool>((ref) => false);
+
 final authStateProvider = StateNotifierProvider<AuthNotifier, AppAuthState>((ref) {
   return AuthNotifier(
+    ref,
     ref.watch(authRepositoryProvider),
     ref.watch(storageServiceProvider),
   );
 });
 
 class AuthNotifier extends StateNotifier<AppAuthState> {
+  final Ref _ref;
   final AuthRepository _repository;
   final StorageService _storageService;
 
-  AuthNotifier(this._repository, this._storageService) : super(AppAuthState.initializing) {
+  AuthNotifier(this._ref, this._repository, this._storageService) : super(AppAuthState.initializing) {
     _checkToken();
   }
 
@@ -25,12 +30,15 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
   }
 
   Future<void> login(String username, String password) async {
-    await _repository.login(username, password);
+    final showOnboarding = await _repository.login(username, password);
+    _ref.read(showOnboardingProvider.notifier).state = showOnboarding;
     state = AppAuthState.authenticated;
   }
 
   Future<void> signup(String username, String password) async {
-    await _repository.signup(username, password);
+    final showOnboarding = await _repository.signup(username, password);
+    _ref.read(showOnboardingProvider.notifier).state = showOnboarding;
+    state = AppAuthState.authenticated;
   }
 
   Future<void> logout() async {
