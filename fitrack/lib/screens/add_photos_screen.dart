@@ -186,6 +186,18 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
     int uploaded = 0;
     String? lastError;
 
+    // Collect existing URLs for types being replaced so we can evict cache.
+    final date = DateTime.parse(widget.date);
+    final session = ref.read(photosByDateProvider(date)).valueOrNull;
+    final oldUrls = <String>{};
+    if (session != null) {
+      for (final p in session.photos) {
+        if (_selected.containsKey(p.photoType) && p.imageUrl != null) {
+          oldUrls.add(p.imageUrl!);
+        }
+      }
+    }
+
     for (final entry in _selected.entries) {
       try {
         final bytes = _previewBytes[entry.key];
@@ -204,6 +216,12 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
     }
 
     if (!mounted) return;
+
+    // Evict old cached images so replacements show immediately.
+    for (final url in oldUrls) {
+      await CachedNetworkImageProvider(url).evict();
+    }
+
     setState(() => _isSaving = false);
 
     if (lastError != null && uploaded == 0) {
@@ -212,7 +230,6 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
     }
 
     // Invalidate providers so photos screen refreshes.
-    final date = DateTime.parse(widget.date);
     ref.invalidate(photosByDateProvider(date));
     ref.invalidate(dashboardProvider);
 

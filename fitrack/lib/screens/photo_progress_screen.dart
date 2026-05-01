@@ -83,6 +83,10 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
     setState(() => _deleting[photo.photoType] = true);
     try {
       await ref.read(trackerRepositoryProvider).deletePhoto(photo.id);
+      // Evict cached image so it doesn't reappear if the same slot is reused.
+      if (photo.imageUrl != null) {
+        await CachedNetworkImageProvider(photo.imageUrl!).evict();
+      }
       ref.invalidate(dashboardProvider);
       _refresh();
     } catch (e) {

@@ -25,6 +25,16 @@ class PhotoUploadView(APIView):
             date=data['date'],
         )
 
+        # Delete old image file before replacing
+        try:
+            old_photo = ProgressPhoto.objects.get(
+                session=session,
+                photo_type=data['photo_type'],
+            )
+            old_photo.image.delete(save=False)
+        except ProgressPhoto.DoesNotExist:
+            pass
+
         # Create or replace photo for the given type
         photo, created = ProgressPhoto.objects.update_or_create(
             session=session,
