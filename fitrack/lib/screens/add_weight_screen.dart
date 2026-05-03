@@ -276,14 +276,13 @@ class _AddWeightScreenState extends ConsumerState<AddWeightScreen> {
               ),
             ),
             const SizedBox(height: 32),
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: TextField(
-                      controller: _morningController,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: _morningController,
                       onChanged: (val) {
                         if (val.isNotEmpty && _morningTime == null) {
                           setState(() => _morningTime = TimeOfDay.now());
@@ -311,29 +310,27 @@ class _AddWeightScreenState extends ConsumerState<AddWeightScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    flex: 2,
-                    child: _buildTimeSelector(
-                      label: 'Time',
-                      time: _morningTime,
-                      icon: LucideIcons.clock,
-                      onTap: () => _pickTime(true),
-                      onClear: () => setState(() => _morningTime = null),
-                    ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 2,
+                  child: _buildTimeSelector(
+                    label: 'Time',
+                    time: _morningTime,
+                    icon: LucideIcons.clock,
+                    onTap: () => _pickTime(true),
+                    onClear: () => setState(() => _morningTime = null),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: TextField(
-                      controller: _eveningController,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: _eveningController,
                       onChanged: (val) {
                         if (val.isNotEmpty && _eveningTime == null) {
                           setState(() => _eveningTime = TimeOfDay.now());
@@ -361,19 +358,18 @@ class _AddWeightScreenState extends ConsumerState<AddWeightScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    flex: 2,
-                    child: _buildTimeSelector(
-                      label: 'Time',
-                      time: _eveningTime,
-                      icon: LucideIcons.clock,
-                      onTap: () => _pickTime(false),
-                      onClear: () => setState(() => _eveningTime = null),
-                    ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 2,
+                  child: _buildTimeSelector(
+                    label: 'Time',
+                    time: _eveningTime,
+                    icon: LucideIcons.clock,
+                    onTap: () => _pickTime(false),
+                    onClear: () => setState(() => _eveningTime = null),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
             const SizedBox(height: 32),
             TextField(

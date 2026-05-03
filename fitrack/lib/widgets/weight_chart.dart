@@ -226,6 +226,8 @@ class _WeightChartState extends State<WeightChart> {
                 touchTooltipData: LineTouchTooltipData(
                   tooltipBgColor: const Color(0xFF1E2532),
                   tooltipRoundedRadius: 10,
+                  fitInsideHorizontally: true,
+                  fitInsideVertically: true,
                   tooltipPadding: const EdgeInsets.symmetric(
                       horizontal: 12, vertical: 8),
                   getTooltipItems: (touchedSpots) {
