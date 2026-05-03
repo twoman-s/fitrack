@@ -31,6 +31,18 @@ class GoalProgressCard extends StatelessWidget {
     final pct = gp.percentage.clamp(0.0, 100.0);
     final verb = isLose ? 'Lost' : 'Gained';
 
+    // changed > 0 = making progress; changed < 0 = going wrong direction.
+    final isGoodDirection = gp.changed >= 0;
+    const badColor = Color(0xFFEF4444); // red
+    final accentColor = isGoodDirection ? AppTheme.primary : badColor;
+    // Good direction: LOSE → weight going down (trendingDown), GAIN → going up (trendingUp).
+    // Bad direction:  LOSE → weight going up (trendingUp bad),  GAIN → going down (trendingDown bad).
+    final badgeIcon = isLose
+        ? (isGoodDirection ? LucideIcons.trendingDown : LucideIcons.trendingUp)
+        : (isGoodDirection ? LucideIcons.trendingUp : LucideIcons.trendingDown);
+    // Prefix sign: bad LOSE = gained (+), bad GAIN = lost (-).
+    final changedPrefix = isGoodDirection ? '' : (isLose ? '+' : '-');
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -62,20 +74,20 @@ class GoalProgressCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          gp.changed.abs().toStringAsFixed(1),
-                          style: const TextStyle(
-                            color: AppTheme.primary,
+                          '$changedPrefix${gp.changed.abs().toStringAsFixed(1)}',
+                          style: TextStyle(
+                            color: accentColor,
                             fontSize: 44,
                             fontWeight: FontWeight.w800,
                             height: 1,
                           ),
                         ),
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 6, left: 4),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6, left: 4),
                           child: Text(
                             'kg',
                             style: TextStyle(
-                              color: AppTheme.primary,
+                              color: accentColor,
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
                             ),
@@ -104,8 +116,10 @@ class GoalProgressCard extends StatelessWidget {
                         ),
                         Text(
                           '${gp.currentWeight} kg',
-                          style: const TextStyle(
-                            color: AppTheme.textPrimary,
+                          style: TextStyle(
+                            color: isGoodDirection
+                                ? AppTheme.textPrimary
+                                : badColor,
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
@@ -117,7 +131,7 @@ class GoalProgressCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               // Right: circular arc
-              _CircularProgressRing(percentage: pct),
+              _CircularProgressRing(percentage: pct, color: accentColor),
             ],
           ),
 
@@ -133,25 +147,26 @@ class GoalProgressCard extends StatelessWidget {
                   height: 36,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: AppTheme.primary.withValues(alpha: 0.12),
+                    color: accentColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: AppTheme.primary.withValues(alpha: 0.30),
+                      color: accentColor.withValues(alpha: 0.30),
                       width: 1,
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(LucideIcons.trendingUp,
-                          size: 14, color: AppTheme.primary),
+                      Icon(badgeIcon, size: 14, color: accentColor),
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
-                          "You're ${pct.toStringAsFixed(0)}% of the way to your goal!",
+                          isGoodDirection
+                              ? "You're ${pct.toStringAsFixed(0)}% of the way to your goal!"
+                              : "You're moving away from your goal!",
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppTheme.primary,
+                          style: TextStyle(
+                            color: accentColor,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -257,8 +272,9 @@ class _CardAction extends StatelessWidget {
 
 class _CircularProgressRing extends StatelessWidget {
   final double percentage;
+  final Color color;
 
-  const _CircularProgressRing({required this.percentage});
+  const _CircularProgressRing({required this.percentage, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -266,15 +282,15 @@ class _CircularProgressRing extends StatelessWidget {
       width: 90,
       height: 90,
       child: CustomPaint(
-        painter: _ArcPainter(percentage: percentage),
+        painter: _ArcPainter(percentage: percentage, color: color),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 '${percentage.toStringAsFixed(0)}%',
-                style: const TextStyle(
-                  color: AppTheme.primary,
+                style: TextStyle(
+                  color: color,
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
                   height: 1,
@@ -297,8 +313,9 @@ class _CircularProgressRing extends StatelessWidget {
 
 class _ArcPainter extends CustomPainter {
   final double percentage;
+  final Color color;
 
-  _ArcPainter({required this.percentage});
+  _ArcPainter({required this.percentage, required this.color});
 
   // Arc spans 270°; gap (90°) centered at the bottom (6 o'clock = π/2).
   // Start: 135° = 3π/4 rad (bottom-left, 4:30 position in Flutter canvas).
@@ -334,7 +351,7 @@ class _ArcPainter extends CustomPainter {
         sweep,
         false,
         Paint()
-          ..color = AppTheme.primary
+          ..color = color
           ..style = PaintingStyle.stroke
           ..strokeWidth = _strokeWidth
           ..strokeCap = StrokeCap.round,
@@ -344,7 +361,7 @@ class _ArcPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ArcPainter old) =>
-      old.percentage != percentage;
+      old.percentage != percentage || old.color != color;
 }
 
 // ── No goal placeholder ───────────────────────────────────────────────────────

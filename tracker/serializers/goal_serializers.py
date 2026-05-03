@@ -8,7 +8,7 @@ class WeightGoalSerializer(serializers.ModelSerializer):
     class Meta:
         model = WeightGoal
         fields = [
-            'id', 'goal_type', 'target_weight',
+            'id', 'goal_type', 'current_weight', 'target_weight',
             'start_date', 'target_date', 'is_active',
             'completed_at', 'created_at', 'updated_at',
         ]

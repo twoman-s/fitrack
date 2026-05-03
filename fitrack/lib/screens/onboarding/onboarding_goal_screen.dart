@@ -17,6 +17,7 @@ class OnboardingGoalScreen extends ConsumerStatefulWidget {
 
 class _OnboardingGoalScreenState extends ConsumerState<OnboardingGoalScreen> {
   String _goalType = 'LOSE'; // 'LOSE' | 'GAIN'
+  final _currentWeightController = TextEditingController();
   final _weightController = TextEditingController();
   DateTime _startDate = DateTime.now();
   DateTime _targetDate = DateTime.now().add(const Duration(days: 90));
@@ -24,6 +25,7 @@ class _OnboardingGoalScreenState extends ConsumerState<OnboardingGoalScreen> {
 
   @override
   void dispose() {
+    _currentWeightController.dispose();
     _weightController.dispose();
     super.dispose();
   }
@@ -74,11 +76,20 @@ class _OnboardingGoalScreenState extends ConsumerState<OnboardingGoalScreen> {
       ErrorHandler.showSnackBar(context, 'Please enter a valid weight');
       return;
     }
+    final currentWeightText = _currentWeightController.text.trim();
+    final currentWeight = currentWeightText.isNotEmpty
+        ? double.tryParse(currentWeightText)
+        : null;
+    if (currentWeightText.isNotEmpty && (currentWeight == null || currentWeight <= 0)) {
+      ErrorHandler.showSnackBar(context, 'Please enter a valid current weight');
+      return;
+    }
 
     setState(() => _isSaving = true);
     try {
       await ref.read(goalRepositoryProvider).createGoal(
         goalType: _goalType,
+        currentWeight: currentWeight,
         targetWeight: weight,
         startDate: DateFormat('yyyy-MM-dd').format(_startDate),
         targetDate: DateFormat('yyyy-MM-dd').format(_targetDate),
@@ -175,6 +186,35 @@ class _OnboardingGoalScreenState extends ConsumerState<OnboardingGoalScreen> {
                     _GoalToggle(
                       selected: _goalType,
                       onChanged: (v) => setState(() => _goalType = v),
+                    ),
+
+                    const SizedBox(height: 28),
+
+                    // ── Current weight ───────────────────────────────────
+                    const _SectionLabel('Current Weight (kg)'),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _currentWeightController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                      decoration: InputDecoration(
+                        hintText: 'e.g. 85.0',
+                        prefixIcon: const Icon(LucideIcons.scale, size: 18),
+                        filled: true,
+                        fillColor: const Color(0xFF111111),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFF2A2A2A)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFF2A2A2A)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: AppTheme.primary),
+                        ),
+                      ),
                     ),
 
                     const SizedBox(height: 28),

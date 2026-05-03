@@ -93,16 +93,21 @@ class ProgressView(APIView):
         goal_progress = None
         goal = WeightGoal.objects.filter(user=user, is_active=True).first()
         if goal is not None:
-            # Start weight: first entry on/after goal.start_date;
-            # fallback to latest entry before start_date if none found yet.
+            # Start weight: use goal.current_weight if the user set it;
+            # otherwise fall back to the first recorded weight on/after
+            # goal.start_date, then to the latest weight before it.
             start_weight = None
-            for e in DailyWeightEntry.objects.filter(
-                user=user, date__gte=goal.start_date
-            ).order_by('date'):
-                pw = _primary(e)
-                if pw is not None:
-                    start_weight = pw
-                    break
+            if goal.current_weight is not None:
+                start_weight = float(goal.current_weight)
+
+            if start_weight is None:
+                for e in DailyWeightEntry.objects.filter(
+                    user=user, date__gte=goal.start_date
+                ).order_by('date'):
+                    pw = _primary(e)
+                    if pw is not None:
+                        start_weight = pw
+                        break
 
             if start_weight is None:
                 for e in DailyWeightEntry.objects.filter(

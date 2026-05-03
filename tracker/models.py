@@ -180,6 +180,7 @@ class WeightGoal(models.Model):
         related_name='weight_goals',
     )
     goal_type = models.CharField(max_length=4, choices=GoalType.choices)
+    current_weight = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     target_weight = models.DecimalField(max_digits=5, decimal_places=2)
     start_date = models.DateField()
     target_date = models.DateField()

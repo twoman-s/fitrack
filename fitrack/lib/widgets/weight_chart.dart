@@ -12,16 +12,42 @@ const _trendColor = Color(0xFFA78BFA); // purple
 
 /// Interactive line chart that renders morning weight, evening weight, and a
 /// linear-regression trend line.  Tapping any point shows a tooltip.
+///
+/// Pass [showMorning], [showEvening], [showTrend] to control initial
+/// visibility.  The legend items are tappable to toggle series at runtime.
 class WeightChart extends StatefulWidget {
   final List<ProgressChartPoint> points;
 
-  const WeightChart({super.key, required this.points});
+  /// Initial visibility of each series.  Defaults to all visible.
+  final bool showMorning;
+  final bool showEvening;
+  final bool showTrend;
+
+  const WeightChart({
+    super.key,
+    required this.points,
+    this.showMorning = true,
+    this.showEvening = true,
+    this.showTrend = true,
+  });
 
   @override
   State<WeightChart> createState() => _WeightChartState();
 }
 
 class _WeightChartState extends State<WeightChart> {
+  late bool _showMorning;
+  late bool _showEvening;
+  late bool _showTrend;
+
+  @override
+  void initState() {
+    super.initState();
+    _showMorning = widget.showMorning;
+    _showEvening = widget.showEvening;
+    _showTrend = widget.showTrend;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.points.isEmpty) {
@@ -47,10 +73,10 @@ class _WeightChartState extends State<WeightChart> {
       if (p.trend != null) trendSpots.add(FlSpot(x, p.trend!));
     }
 
-    // Y-axis bounds with ±2 kg padding, snapped to even numbers.
+    // Y-axis bounds — include only visible series.
     final allYValues = [
-      ...morningSpots.map((s) => s.y),
-      ...eveningSpots.map((s) => s.y),
+      if (_showMorning) ...morningSpots.map((s) => s.y),
+      if (_showEvening) ...eveningSpots.map((s) => s.y),
     ];
     if (allYValues.isEmpty) {
       return const Center(
@@ -71,7 +97,26 @@ class _WeightChartState extends State<WeightChart> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        _Legend(),
+        // ── Header: legend (left) + stat chips (right) ───────────────────────
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _Legend(
+              showMorning: _showMorning,
+              showEvening: _showEvening,
+              showTrend: _showTrend,
+              onToggleMorning: () => setState(() => _showMorning = !_showMorning),
+              onToggleEvening: () => setState(() => _showEvening = !_showEvening),
+              onToggleTrend: () => setState(() => _showTrend = !_showTrend),
+            ),
+            const Spacer(),
+            _StatChip(label: 'Avg', value: allYValues.fold(0.0, (s, v) => s + v) / allYValues.length),
+            const SizedBox(width: 4),
+            _StatChip(label: 'Hi', value: rawMax),
+            const SizedBox(width: 4),
+            _StatChip(label: 'Lo', value: rawMin),
+          ],
+        ),
         const SizedBox(height: 8),
         Expanded(
           child: LineChart(
@@ -191,31 +236,20 @@ class _WeightChartState extends State<WeightChart> {
                     final dateLabel =
                         dt != null ? DateFormat('MMM d').format(dt) : '';
 
+                    // Map spot color → label (robust to hidden series shifting barIndex).
+                    String _labelFor(LineBarSpot spot) {
+                      final c = spot.bar.color;
+                      if (c == _morningColor) return 'Morning: ${spot.y.toStringAsFixed(1)} kg';
+                      if (c == _eveningColor) return 'Evening: ${spot.y.toStringAsFixed(1)} kg';
+                      if (c == _trendColor)   return 'Trend: ${spot.y.toStringAsFixed(1)} kg';
+                      return spot.y.toStringAsFixed(1);
+                    }
+
                     return touchedSpots.asMap().entries.map((entry) {
                       final isFirst = entry.key == 0;
                       final spot = entry.value;
-
-                      String value;
-                      Color color;
-                      switch (spot.barIndex) {
-                        case 0:
-                          value =
-                              'Morning: ${spot.y.toStringAsFixed(1)} kg';
-                          color = _morningColor;
-                          break;
-                        case 1:
-                          value =
-                              'Evening: ${spot.y.toStringAsFixed(1)} kg';
-                          color = _eveningColor;
-                          break;
-                        case 2:
-                          value =
-                              'Trend: ${spot.y.toStringAsFixed(1)} kg';
-                          color = _trendColor;
-                          break;
-                        default:
-                          return null;
-                      }
+                      final color = spot.bar.color ?? Colors.white;
+                      final value = _labelFor(spot);
 
                       if (isFirst) {
                         return LineTooltipItem(
@@ -253,51 +287,54 @@ class _WeightChartState extends State<WeightChart> {
               // ── Lines ────────────────────────────────────────────────────
               lineBarsData: [
                 // 0: Morning (green)
-                LineChartBarData(
-                  spots: morningSpots,
-                  color: _morningColor,
-                  barWidth: 2,
-                  isCurved: true,
-                  preventCurveOverShooting: true,
-                  isStrokeCapRound: true,
-                  dotData: FlDotData(
-                    show: n <= 30,
-                    getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
-                      radius: 3,
-                      color: _morningColor,
-                      strokeWidth: 0,
-                      strokeColor: Colors.transparent,
+                if (_showMorning)
+                  LineChartBarData(
+                    spots: morningSpots,
+                    color: _morningColor,
+                    barWidth: 2,
+                    isCurved: true,
+                    preventCurveOverShooting: true,
+                    isStrokeCapRound: true,
+                    dotData: FlDotData(
+                      show: n <= 30,
+                      getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
+                        radius: 3,
+                        color: _morningColor,
+                        strokeWidth: 0,
+                        strokeColor: Colors.transparent,
+                      ),
                     ),
                   ),
-                ),
                 // 1: Evening (blue)
-                LineChartBarData(
-                  spots: eveningSpots,
-                  color: _eveningColor,
-                  barWidth: 2,
-                  isCurved: true,
-                  preventCurveOverShooting: true,
-                  isStrokeCapRound: true,
-                  dotData: FlDotData(
-                    show: n <= 30,
-                    getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
-                      radius: 3,
-                      color: _eveningColor,
-                      strokeWidth: 0,
-                      strokeColor: Colors.transparent,
+                if (_showEvening)
+                  LineChartBarData(
+                    spots: eveningSpots,
+                    color: _eveningColor,
+                    barWidth: 2,
+                    isCurved: true,
+                    preventCurveOverShooting: true,
+                    isStrokeCapRound: true,
+                    dotData: FlDotData(
+                      show: n <= 30,
+                      getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
+                        radius: 3,
+                        color: _eveningColor,
+                        strokeWidth: 0,
+                        strokeColor: Colors.transparent,
+                      ),
                     ),
                   ),
-                ),
                 // 2: Trend (dashed purple)
-                LineChartBarData(
-                  spots: trendSpots,
-                  color: _trendColor,
-                  barWidth: 1.5,
-                  isCurved: false,
-                  isStrokeCapRound: false,
-                  dotData: const FlDotData(show: false),
-                  dashArray: const [6, 4],
-                ),
+                if (_showTrend)
+                  LineChartBarData(
+                    spots: trendSpots,
+                    color: _trendColor,
+                    barWidth: 1.5,
+                    isCurved: false,
+                    isStrokeCapRound: false,
+                    dotData: const FlDotData(show: false),
+                    dashArray: const [6, 4],
+                  ),
               ],
             ),
           ),
@@ -324,19 +361,92 @@ class _WeightChartState extends State<WeightChart> {
   }
 }
 
+// ── Stat chip ─────────────────────────────────────────────────────────────────
+
+class _StatChip extends StatelessWidget {
+  final String label;
+  final double value;
+
+  const _StatChip({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.divider, width: 0.5),
+      ),
+      child: RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: '$label ',
+              style: const TextStyle(
+                color: AppTheme.textMuted,
+                fontSize: 10,
+              ),
+            ),
+            TextSpan(
+              text: '${value.toStringAsFixed(1)}',
+              style: const TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── Chart legend ──────────────────────────────────────────────────────────────
 
 class _Legend extends StatelessWidget {
+  final bool showMorning;
+  final bool showEvening;
+  final bool showTrend;
+  final VoidCallback onToggleMorning;
+  final VoidCallback onToggleEvening;
+  final VoidCallback onToggleTrend;
+
+  const _Legend({
+    required this.showMorning,
+    required this.showEvening,
+    required this.showTrend,
+    required this.onToggleMorning,
+    required this.onToggleEvening,
+    required this.onToggleTrend,
+  });
+
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _LegendDot(color: _morningColor, label: 'Morning'),
+        _LegendDot(
+          color: _morningColor,
+          label: 'Morning',
+          active: showMorning,
+          onTap: onToggleMorning,
+        ),
         const SizedBox(width: 12),
-        _LegendDot(color: _eveningColor, label: 'Evening'),
+        _LegendDot(
+          color: _eveningColor,
+          label: 'Evening',
+          active: showEvening,
+          onTap: onToggleEvening,
+        ),
         const SizedBox(width: 12),
-        _LegendLine(color: _trendColor, label: 'Trend'),
+        _LegendLine(
+          color: _trendColor,
+          label: 'Trend',
+          active: showTrend,
+          onTap: onToggleTrend,
+        ),
       ],
     );
   }
@@ -345,25 +455,38 @@ class _Legend extends StatelessWidget {
 class _LegendDot extends StatelessWidget {
   final Color color;
   final String label;
+  final bool active;
+  final VoidCallback onTap;
 
-  const _LegendDot({required this.color, required this.label});
+  const _LegendDot({
+    required this.color,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    return GestureDetector(
+      onTap: onTap,
+      child: Opacity(
+        opacity: active ? 1.0 : 0.35,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
+            ),
+          ],
         ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -371,24 +494,37 @@ class _LegendDot extends StatelessWidget {
 class _LegendLine extends StatelessWidget {
   final Color color;
   final String label;
+  final bool active;
+  final VoidCallback onTap;
 
-  const _LegendLine({required this.color, required this.label});
+  const _LegendLine({
+    required this.color,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: 20,
-          child: CustomPaint(painter: _DashLinePainter(color: color)),
+    return GestureDetector(
+      onTap: onTap,
+      child: Opacity(
+        opacity: active ? 1.0 : 0.35,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 20,
+              child: CustomPaint(painter: _DashLinePainter(color: color)),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
+            ),
+          ],
         ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
-        ),
-      ],
+      ),
     );
   }
 }

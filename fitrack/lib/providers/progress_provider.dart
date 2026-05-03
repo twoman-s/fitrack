@@ -13,3 +13,10 @@ final progressDataProvider = FutureProvider.autoDispose<ProgressData>((ref) {
   final repo = ref.watch(trackerRepositoryProvider);
   return repo.getProgress(period);
 });
+
+/// Always fetches 7-day progress data — used by the dashboard chart.
+final dashboardChartProvider = FutureProvider.autoDispose<ProgressData>((ref) {
+  ref.keepAlive();
+  final repo = ref.watch(trackerRepositoryProvider);
+  return repo.getProgress('7d');
+});

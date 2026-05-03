@@ -24,6 +24,7 @@ class GoalRepository {
   /// Creates a new goal. Throws [DioException] with 409 if one is already active.
   Future<WeightGoal> createGoal({
     required String goalType,
+    double? currentWeight,
     required double targetWeight,
     required String startDate,
     required String targetDate,
@@ -32,6 +33,7 @@ class GoalRepository {
       ApiConfig.goal,
       data: {
         'goal_type': goalType,
+        if (currentWeight != null) 'current_weight': currentWeight,
         'target_weight': targetWeight,
         'start_date': startDate,
         'target_date': targetDate,
@@ -44,6 +46,7 @@ class GoalRepository {
   Future<WeightGoal> updateGoal(
     int id, {
     String? goalType,
+    double? currentWeight,
     double? targetWeight,
     String? startDate,
     String? targetDate,
@@ -51,6 +54,7 @@ class GoalRepository {
   }) async {
     final Map<String, dynamic> data = {};
     if (goalType != null) data['goal_type'] = goalType;
+    if (currentWeight != null) data['current_weight'] = currentWeight;
     if (targetWeight != null) data['target_weight'] = targetWeight;
     if (startDate != null) data['start_date'] = startDate;
     if (targetDate != null) data['target_date'] = targetDate;

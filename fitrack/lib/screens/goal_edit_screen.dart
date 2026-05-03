@@ -24,6 +24,7 @@ class GoalEditScreen extends ConsumerStatefulWidget {
 
 class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
   late String _goalType;
+  final _currentWeightController = TextEditingController();
   final _weightController = TextEditingController();
   late DateTime _startDate;
   late DateTime _targetDate;
@@ -37,6 +38,8 @@ class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
     super.initState();
     final g = widget.existingGoal;
     _goalType = g?.goalType ?? 'LOSE';
+    _currentWeightController.text =
+        g?.currentWeight != null ? g!.currentWeight.toString() : '';
     _weightController.text = g != null ? g.targetWeight.toString() : '';
     _startDate = g != null
         ? DateTime.parse(g.startDate)
@@ -48,6 +51,7 @@ class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
 
   @override
   void dispose() {
+    _currentWeightController.dispose();
     _weightController.dispose();
     super.dispose();
   }
@@ -99,6 +103,14 @@ class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
       ErrorHandler.showSnackBar(context, 'Please enter a valid weight');
       return;
     }
+    final currentWeightText = _currentWeightController.text.trim();
+    final currentWeight = currentWeightText.isNotEmpty
+        ? double.tryParse(currentWeightText)
+        : null;
+    if (currentWeightText.isNotEmpty && (currentWeight == null || currentWeight <= 0)) {
+      ErrorHandler.showSnackBar(context, 'Please enter a valid current weight');
+      return;
+    }
 
     setState(() => _isSaving = true);
     try {
@@ -106,6 +118,7 @@ class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
         await ref.read(goalRepositoryProvider).updateGoal(
           widget.existingGoal!.id,
           goalType: _goalType,
+          currentWeight: currentWeight,
           targetWeight: weight,
           startDate: DateFormat('yyyy-MM-dd').format(_startDate),
           targetDate: DateFormat('yyyy-MM-dd').format(_targetDate),
@@ -113,6 +126,7 @@ class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
       } else {
         await ref.read(goalRepositoryProvider).createGoal(
           goalType: _goalType,
+          currentWeight: currentWeight,
           targetWeight: weight,
           startDate: DateFormat('yyyy-MM-dd').format(_startDate),
           targetDate: DateFormat('yyyy-MM-dd').format(_targetDate),
@@ -209,6 +223,38 @@ class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
             _GoalToggle(
               selected: _goalType,
               onChanged: (v) => setState(() => _goalType = v),
+            ),
+
+            const SizedBox(height: 28),
+
+            // ── Current weight ───────────────────────────────────────────
+            const _SectionLabel('Current Weight (kg)'),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _currentWeightController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+              decoration: InputDecoration(
+                hintText: 'e.g. 85.0',
+                hintStyle: const TextStyle(color: AppTheme.textMuted),
+                prefixIcon: const Icon(LucideIcons.scale, size: 18,
+                    color: AppTheme.textMuted),
+                filled: true,
+                fillColor: AppTheme.surfaceHighlight,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF2A2A2A)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF2A2A2A)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppTheme.primary),
+                ),
+              ),
             ),
 
             const SizedBox(height: 28),
