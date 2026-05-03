@@ -8,6 +8,7 @@ class DashboardData {
   final int streak;
   final List<DailyWeight> weeklyGraph;
   final PhotoSession? latestPhotos;
+  final String? goalType; // 'LOSE', 'GAIN', or null
 
   DashboardData({
     this.latestMorningWeight,
@@ -19,6 +20,7 @@ class DashboardData {
     required this.streak,
     this.weeklyGraph = const [],
     this.latestPhotos,
+    this.goalType,
   });
 
   factory DashboardData.fromJson(Map<String, dynamic> json) {
@@ -36,6 +38,7 @@ class DashboardData {
       latestPhotos: json['latest_photos'] != null 
           ? PhotoSession.fromJson(json['latest_photos']) 
           : null,
+      goalType: json['goal_type'] as String?,
     );
   }
 

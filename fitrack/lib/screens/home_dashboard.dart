@@ -94,30 +94,24 @@ class HomeDashboard extends ConsumerWidget {
                   ),
                   const SizedBox(height: 24),
                   
-                  // Today's Weight Cards
-                  Row(
+                  // Today's Cards: Quote (left) + Weight (right)
+                  IntrinsicHeight(
+                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(
-                        child: _WeightCard(
-                          title: 'Morning Weight',
-                          weight: data.latestMorningWeight,
-                          time: _formatTime(data.latestMorningTime),
-                          icon: LucideIcons.sun,
-                          iconColor: const Color(0xFF22C55E),
-                        ),
+                        child: _QuoteCard(goalType: data.goalType),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: _WeightCard(
-                          title: 'Evening Weight',
-                          weight: data.latestEveningWeight,
-                          time: _formatTime(data.latestEveningTime),
-                          icon: LucideIcons.moon,
-                          iconColor: const Color(0xFF3B82F6),
+                          morningWeight: data.latestMorningWeight,
+                          morningTime: _formatTime(data.latestMorningTime),
+                          eveningWeight: data.latestEveningWeight,
+                          eveningTime: _formatTime(data.latestEveningTime),
                         ),
                       ),
-                    ],
-                  ),
+                    ],                   ),                  ),
                   const SizedBox(height: 16),
 
                   // This Week Chart
@@ -241,19 +235,105 @@ class HomeDashboard extends ConsumerWidget {
   }
 }
 
+// ── Quote card ────────────────────────────────────────────────────────────────
+
+const _loseQuotes = [
+  'Every workout brings you closer to your best self.',
+  'Sweat today, shine tomorrow.',
+  'Small changes create powerful transformations.',
+  'Burn excuses, build confidence.',
+  'Discipline weighs less than regret.',
+  'Stronger than yesterday, leaner than before.',
+  'Fat loss is a journey, strength is the reward.',
+  'One healthy choice can change everything.',
+  'Confidence is built one workout at a time.',
+  'Lose the doubt, gain the strength.',
+];
+
+const _gainQuotes = [
+  'Every meal is a step closer to the stronger version of you.',
+  'Growth happens when consistency meets effort.',
+  'Fuel your body today, thank yourself tomorrow.',
+  'Strength is built bite by bite, rep by rep.',
+  'Bigger goals need bigger dedication.',
+  'Confidence grows with every pound of progress.',
+  'Eat strong, train stronger, become unstoppable.',
+  'Muscle is earned through patience and persistence.',
+  'Your body is under construction—keep building.',
+  'Progress may be slow, but strength is always worth it.',
+];
+
+const _neutralQuotes = [
+  'Progress is personal—move at your own pace.',
+  'A healthy life starts with small daily choices.',
+  'Your journey is yours alone—honor every step.',
+  'Consistency matters more than perfection.',
+  'Strong habits create lasting results.',
+  'Take care of your body—it carries you through life.',
+  'Every positive choice adds up over time.',
+  'Wellness is built one day at a time.',
+  'Focus on feeling better, not being perfect.',
+  'The best investment is in your own health.',
+];
+
+class _QuoteCard extends StatelessWidget {
+  final String? goalType;
+  const _QuoteCard({this.goalType});
+
+  @override
+  Widget build(BuildContext context) {
+    final quotes = goalType == 'LOSE'
+        ? _loseQuotes
+        : goalType == 'GAIN'
+            ? _gainQuotes
+            : _neutralQuotes;
+
+    // Pick a consistent daily quote using day-of-year as index.
+    final now = DateTime.now();
+    final dayOfYear = now.difference(DateTime(now.year)).inDays;
+    final quote = quotes[dayOfYear % quotes.length];
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Icon(
+              LucideIcons.sparkles,
+              size: 20,
+              color: const Color(0xFF22C55E),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              quote,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Weight card ───────────────────────────────────────────────────────────────
+
 class _WeightCard extends StatelessWidget {
-  final String title;
-  final double? weight;
-  final String time;
-  final IconData icon;
-  final Color iconColor;
+  final double? morningWeight;
+  final String morningTime;
+  final double? eveningWeight;
+  final String eveningTime;
 
   const _WeightCard({
-    required this.title,
-    this.weight,
-    required this.time,
-    required this.icon,
-    required this.iconColor,
+    this.morningWeight,
+    required this.morningTime,
+    this.eveningWeight,
+    required this.eveningTime,
   });
 
   @override
@@ -261,33 +341,88 @@ class _WeightCard extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Text(title, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
-            const SizedBox(height: 8),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  weight?.toStringAsFixed(1) ?? '--',
-                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                const SizedBox(width: 4),
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 4),
-                  child: Text('kg', style: TextStyle(color: Color(0xFF94A3B8))),
-                ),
-              ],
+            // Morning
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Morning',
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        morningWeight?.toStringAsFixed(1) ?? '--',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 3),
+                        child: Text('kg', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      const Icon(LucideIcons.sun, size: 12, color: Color(0xFF22C55E)),
+                      const SizedBox(width: 4),
+                      Text(morningTime, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(icon, size: 14, color: iconColor),
-                const SizedBox(width: 6),
-                Text(time, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
-              ],
-            ),
+
+            // Evening — only shown if logged today
+            if (eveningWeight != null) ...[
+              const VerticalDivider(width: 24, color: Color(0xFF222222)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Evening',
+                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          eveningWeight!.toStringAsFixed(1),
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 3),
+                          child: Text('kg', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        const Icon(LucideIcons.moon, size: 12, color: Color(0xFF3B82F6)),
+                        const SizedBox(width: 4),
+                        Text(eveningTime, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
