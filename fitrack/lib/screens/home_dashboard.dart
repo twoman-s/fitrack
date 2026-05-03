@@ -143,7 +143,7 @@ class HomeDashboard extends ConsumerWidget {
                                   ),
                                   const SizedBox(height: 12),
                                   SizedBox(
-                                    height: 220,
+                                    height: 300,
                                     child: WeightChart(
                                       points: chartData.chart,
                                       showMorning: true,

@@ -98,13 +98,18 @@ class ProgressGraphScreen extends ConsumerWidget {
                   // ── Weight chart ────────────────────────────────────────
                   Container(
                     height: 300,
-                    padding: const EdgeInsets.fromLTRB(4, 12, 16, 8),
+                    padding: const EdgeInsets.fromLTRB(12, 12, 16, 8),
                     decoration: BoxDecoration(
                       color: AppTheme.surface,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: progressAsync.when(
-                      data: (data) => WeightChart(points: data.chart),
+                      data: (data) => WeightChart(
+                        points: data.chart,
+                        showMorning: true,
+                        showEvening: false,
+                        showTrend: true,
+                      ),
                       loading: () => const Center(
                         child: CircularProgressIndicator(
                           color: AppTheme.primary,

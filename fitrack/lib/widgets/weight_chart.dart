@@ -105,16 +105,18 @@ class _WeightChartState extends State<WeightChart> {
               showMorning: _showMorning,
               showEvening: _showEvening,
               showTrend: _showTrend,
-              onToggleMorning: () => setState(() => _showMorning = !_showMorning),
-              onToggleEvening: () => setState(() => _showEvening = !_showEvening),
+              onToggleMorning: () => setState(() {
+                if (_showMorning && !_showEvening) return;
+                _showMorning = !_showMorning;
+              }),
+              onToggleEvening: () => setState(() {
+                if (_showEvening && !_showMorning) return;
+                _showEvening = !_showEvening;
+              }),
               onToggleTrend: () => setState(() => _showTrend = !_showTrend),
             ),
             const Spacer(),
-            _StatChip(label: 'Avg', value: allYValues.fold(0.0, (s, v) => s + v) / allYValues.length),
-            const SizedBox(width: 4),
-            _StatChip(label: 'Hi', value: rawMax),
-            const SizedBox(width: 4),
-            _StatChip(label: 'Lo', value: rawMin),
+            ..._buildStatChips(morningSpots),
           ],
         ),
         const SizedBox(height: 8),
@@ -170,6 +172,7 @@ class _WeightChartState extends State<WeightChart> {
                   sideTitles: SideTitles(
                     showTitles: true,
                     reservedSize: 26,
+                    interval: 1,
                     getTitlesWidget: (value, meta) {
                       final idx = value.round();
                       if (idx < 0 || idx >= n) return const SizedBox.shrink();
@@ -341,6 +344,22 @@ class _WeightChartState extends State<WeightChart> {
         ),
       ],
     );
+  }
+
+  /// Builds the Avg/Hi/Lo stat chips always based on morning weight only.
+  List<Widget> _buildStatChips(List<FlSpot> morningSpots) {
+    if (morningSpots.isEmpty) return [];
+    final vals = morningSpots.map((s) => s.y).toList();
+    final avg = vals.fold(0.0, (s, v) => s + v) / vals.length;
+    final hi = vals.reduce((a, b) => a > b ? a : b);
+    final lo = vals.reduce((a, b) => a < b ? a : b);
+    return [
+      _StatChip(label: 'Avg', value: avg),
+      const SizedBox(width: 4),
+      _StatChip(label: 'Hi', value: hi),
+      const SizedBox(width: 4),
+      _StatChip(label: 'Lo', value: lo),
+    ];
   }
 
   /// Show x-axis labels at first, last, and ~2 intermediate points.
