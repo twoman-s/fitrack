@@ -4,7 +4,7 @@ from django.db.models import Avg
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from tracker.models import DailyWeightEntry, ProgressPhotoSession, WorkoutCheckin
+from tracker.models import DailyWeightEntry, ProgressPhotoSession, WeightGoal, WorkoutCheckin
 from tracker.serializers import ProgressPhotoSessionSerializer
 
 
@@ -15,24 +15,12 @@ class DashboardView(APIView):
         user = request.user
         today = date.today()
 
-        # Latest weights
-        latest_morning_obj = (
-            DailyWeightEntry.objects
-            .filter(user=user, morning_weight__isnull=False)
-            .order_by('-date')
-            .first()
-        )
-        latest_morning = latest_morning_obj.morning_weight if latest_morning_obj else None
-        latest_morning_time = latest_morning_obj.morning_weight_time if latest_morning_obj else None
-
-        latest_evening_obj = (
-            DailyWeightEntry.objects
-            .filter(user=user, evening_weight__isnull=False)
-            .order_by('-date')
-            .first()
-        )
-        latest_evening = latest_evening_obj.evening_weight if latest_evening_obj else None
-        latest_evening_time = latest_evening_obj.evening_weight_time if latest_evening_obj else None
+        # Today's weights only
+        today_entry = DailyWeightEntry.objects.filter(user=user, date=today).first()
+        latest_morning = today_entry.morning_weight if today_entry else None
+        latest_morning_time = today_entry.morning_weight_time if today_entry else None
+        latest_evening = today_entry.evening_weight if today_entry else None
+        latest_evening_time = today_entry.evening_weight_time if today_entry else None
 
         # Weekly average (last 7 days)
         week_ago = today - timedelta(days=7)
@@ -89,6 +77,10 @@ class DashboardView(APIView):
                 latest_session, context={'request': request},
             ).data
 
+        # Active goal type
+        active_goal = WeightGoal.objects.filter(user=user, is_active=True).first()
+        goal_type = active_goal.goal_type if active_goal else None
+
         data = {
             'latest_morning_weight': latest_morning,
             'latest_morning_time': latest_morning_time,
@@ -99,6 +91,7 @@ class DashboardView(APIView):
             'streak': streak,
             'weekly_graph': weekly_graph,
             'latest_photos': latest_photos,
+            'goal_type': goal_type,
         }
 
         return Response(data)
