@@ -196,3 +196,65 @@ class WeightGoal(models.Model):
     def __str__(self):
         status = 'active' if self.is_active else 'completed'
         return f"{self.user.username} – {self.goal_type} → {self.target_weight} kg ({status})"
+
+
+# ---------------------------------------------------------------------------
+# KYC
+# ---------------------------------------------------------------------------
+
+class UserKYC(models.Model):
+    """One KYC record per user — tracks identity verification state."""
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        APPROVED = 'approved', 'Approved'
+        FAILED = 'failed', 'Failed'
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='kyc',
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.PENDING,
+    )
+    is_completed = models.BooleanField(default=False)
+    age_confirmed = models.BooleanField(default=False)
+    dob = models.DateField(null=True, blank=True)
+    face_embedding = models.JSONField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'user_kyc'
+
+    def __str__(self):
+        return f"{self.user.username} – KYC {self.status}"
+
+
+class UserConsent(models.Model):
+    """Audit trail of user consent declarations."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='consents',
+    )
+    terms_accepted = models.BooleanField(default=False)
+    privacy_accepted = models.BooleanField(default=False)
+    photo_processing_accepted = models.BooleanField(default=False)
+    sensitive_data_accepted = models.BooleanField(default=False)
+    adult_confirmed = models.BooleanField(default=False)
+    self_photo_confirmed = models.BooleanField(default=False)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    consent_version = models.CharField(max_length=20, default='v1')
+    accepted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'user_consents'
+        ordering = ['-accepted_at']
+
+    def __str__(self):
+        return f"{self.user.username} – consent {self.consent_version} @ {self.accepted_at:%Y-%m-%d}"

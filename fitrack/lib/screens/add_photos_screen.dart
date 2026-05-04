@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -10,6 +11,7 @@ import '../core/error_handler.dart';
 import '../core/theme.dart';
 import '../models/dashboard.dart';
 import '../providers/dashboard_provider.dart';
+import '../providers/kyc_provider.dart';
 import '../repositories/tracker_repository.dart';
 import '../widgets/app_bar.dart';
 import '../widgets/app_button.dart';
@@ -200,7 +202,14 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
         );
         uploaded++;
       } catch (e) {
-        lastError = e is Exception ? e.toString() : 'Upload failed for ${_photoLabels[entry.key]}.';
+        // If the server says KYC is required, invalidate the cached status so
+        // the photos screen re-evaluates the gate, then abort uploading.
+        if (ErrorHandler.isKycRequired(e)) {
+          ref.invalidate(kycStatusProvider);
+          if (mounted) context.pop();
+          return;
+        }
+        lastError = ErrorHandler.getErrorMessage(e);
       }
     }
 

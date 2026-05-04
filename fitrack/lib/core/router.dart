@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +22,11 @@ import '../screens/onboarding/onboarding_goal_screen.dart';
 import '../screens/onboarding/onboarding_motivation_screen.dart';
 import '../screens/goal_edit_screen.dart';
 import '../screens/goals_list_screen.dart';
+import '../screens/kyc/kyc_welcome_screen.dart';
+import '../screens/kyc/kyc_consent_screen.dart';
+import '../screens/kyc/kyc_selfie_screen.dart';
+import '../screens/kyc/kyc_age_screen.dart';
+import '../screens/kyc/kyc_complete_screen.dart';
 import '../models/weight.dart';
 import '../models/goal.dart';
 import '../providers/auth_provider.dart';
@@ -170,6 +177,31 @@ final routerProvider = Provider<GoRouter>((ref) {
           final goal = state.extra as WeightGoal?;
           return GoalEditScreen(existingGoal: goal);
         },
+      ),
+
+      // KYC flow
+      GoRoute(
+        path: '/kyc',
+        builder: (context, state) => const KycWelcomeScreen(),
+      ),
+      GoRoute(
+        path: '/kyc/consent',
+        builder: (context, state) => const KycConsentScreen(),
+      ),
+      GoRoute(
+        path: '/kyc/selfie',
+        builder: (context, state) => const KycSelfieScreen(),
+      ),
+      GoRoute(
+        path: '/kyc/age',
+        builder: (context, state) {
+          final bytes = state.extra as Uint8List?;
+          return KycAgeScreen(selfieBytes: bytes);
+        },
+      ),
+      GoRoute(
+        path: '/kyc/complete',
+        builder: (context, state) => const KycCompleteScreen(),
       ),
     ],
   );

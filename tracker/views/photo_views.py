@@ -1,8 +1,10 @@
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from tracker.models import ProgressPhoto, ProgressPhotoSession
+from tracker.permissions import IsKYCCompleted
 from tracker.serializers import (
     PhotoCompareSerializer,
     PhotoUploadSerializer,
@@ -12,7 +14,9 @@ from tracker.serializers import (
 
 
 class PhotoUploadView(APIView):
-    """Upload a progress photo (multipart form)."""
+    """Upload a progress photo (multipart form). Requires completed KYC."""
+
+    permission_classes = [IsAuthenticated, IsKYCCompleted]
 
     def post(self, request):
         serializer = PhotoUploadSerializer(data=request.data)

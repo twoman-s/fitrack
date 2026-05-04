@@ -14,6 +14,9 @@ from tracker.views import (
     WeightGoalHistoryView,
     ProgressView,
     StatsView,
+    KYCStatusView,
+    KYCConsentView,
+    KYCCompleteView,
 )
 
 app_name = 'tracker'
@@ -45,4 +48,9 @@ urlpatterns = [
 
     # Stats
     path('stats/', StatsView.as_view(), name='stats'),
+
+    # KYC
+    path('kyc/status/', KYCStatusView.as_view(), name='kyc_status'),
+    path('kyc/consent/', KYCConsentView.as_view(), name='kyc_consent'),
+    path('kyc/complete/', KYCCompleteView.as_view(), name='kyc_complete'),
 ]

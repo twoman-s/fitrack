@@ -9,6 +9,7 @@ import '../core/error_handler.dart';
 import '../repositories/tracker_repository.dart';
 import '../models/dashboard.dart';
 import '../providers/dashboard_provider.dart';
+import '../providers/kyc_provider.dart';
 import '../widgets/app_bar.dart';
 import '../widgets/app_button.dart';
 import '../widgets/skeleton.dart';
@@ -21,7 +22,9 @@ final photosByDateProvider =
   final dateStr = DateFormat('yyyy-MM-dd').format(date);
   try {
     return await repo.getPhotosByDate(dateStr);
-  } catch (_) {
+  } catch (e) {
+    // Let KYC errors surface so the screen can re-show the identity gate.
+    if (ErrorHandler.isKycRequired(e)) rethrow;
     return null;
   }
 });
@@ -48,6 +51,16 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
   DateTime _selectedDate = DateTime.now();
   DateTime _focusedDay = DateTime.now();
   final Map<String, bool> _deleting = {};
+
+  @override
+  void initState() {
+    super.initState();
+    // Always refetch KYC from the API each time the photos screen is opened.
+    // This ensures stale cache never bypasses the identity gate.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.invalidate(kycStatusProvider);
+    });
+  }
 
   void _refresh() => ref.invalidate(photosByDateProvider(_selectedDate));
 
@@ -87,7 +100,13 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
       ref.invalidate(dashboardProvider);
       _refresh();
     } catch (e) {
-      if (mounted) ErrorHandler.showSnackBar(context, ErrorHandler.getErrorMessage(e));
+      if (!mounted) return;
+      if (ErrorHandler.isKycRequired(e)) {
+        // KYC was revoked server-side — invalidate cache and show the gate.
+        ref.invalidate(kycStatusProvider);
+        return;
+      }
+      ErrorHandler.showSnackBar(context, ErrorHandler.getErrorMessage(e));
     } finally {
       if (mounted) setState(() => _deleting.remove(photo.photoType));
     }
@@ -95,85 +114,121 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final sessionAsync = ref.watch(photosByDateProvider(_selectedDate));
+    // KYC gate — show verification prompt if not completed
+    final kycAsync = ref.watch(kycStatusProvider);
+    return kycAsync.when(
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (_, __) => _KycGateScreen(),
+      data: (kyc) {
+        if (!kyc.kycCompleted) return _KycGateScreen();
+        return _PhotosBody(
+          selectedDate: _selectedDate,
+          focusedDay: _focusedDay,
+          deleting: _deleting,
+          onDaySelected: (selected, focused) {
+            setState(() {
+              _selectedDate = selected;
+              _focusedDay = focused;
+            });
+          },
+          onRefresh: _refresh,
+          onDelete: _deletePhoto,
+          sessionAsync: ref.watch(photosByDateProvider(_selectedDate)),
+        );
+      },
+    );
+  }
+}
 
+// ── KYC gate screen ───────────────────────────────────────────────────────────
+
+class _KycGateScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: FitrackAppBar(
-        title: 'Photos',
-        actions: [
-          IconButton(
-            icon: const Icon(LucideIcons.arrowLeftRight, size: 20),
-            onPressed: () => context.push('/compare'),
+      appBar: FitrackAppBar(title: 'Photos'),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(
+                  LucideIcons.shieldAlert,
+                  size: 34,
+                  color: AppTheme.primary,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Identity Verification Required',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Photo uploads are disabled until you complete identity verification. '
+                'This is a one-time process.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.textMuted,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 32),
+              AppButton(
+                label: 'Start Verification',
+                icon: LucideIcons.shieldCheck,
+                onPressed: () => context.push('/kyc'),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          TableCalendar(
-            firstDay: DateTime.utc(2020, 1, 1),
-            lastDay: DateTime.now(),
-            focusedDay: _focusedDay,
-            selectedDayPredicate: (day) => isSameDay(_selectedDate, day),
-            onDaySelected: (selectedDay, focusedDay) {
-              setState(() {
-                _selectedDate = selectedDay;
-                _focusedDay = focusedDay;
-              });
-            },
-            calendarFormat: CalendarFormat.week,
-            headerStyle: const HeaderStyle(
-              formatButtonVisible: false,
-              titleCentered: true,
-            ),
-            calendarStyle: CalendarStyle(
-              selectedDecoration: BoxDecoration(
-                color: AppTheme.primary,
-                shape: BoxShape.rectangle,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              todayDecoration: BoxDecoration(
-                color: Color(0xFF1A1A1A),
-                shape: BoxShape.rectangle,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              defaultDecoration: BoxDecoration(
-                shape: BoxShape.rectangle,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              weekendDecoration: BoxDecoration(
-                shape: BoxShape.rectangle,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              outsideDecoration: BoxDecoration(
-                shape: BoxShape.rectangle,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              disabledDecoration: BoxDecoration(
-                shape: BoxShape.rectangle,
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-          const Divider(color: Color(0xFF1A1A1A), height: 1),
-          Expanded(
-            child: sessionAsync.when(
-              loading: () => _buildSkeleton(),
-              error: (_, __) => _buildEmpty(),
-              data: (session) {
-                final hasPhotos = session != null && session.photos.isNotEmpty;
-                return hasPhotos ? _buildPhotos(session) : _buildEmpty();
-              },
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
+}
 
-  // ── Empty state ─────────────────────────────────────────────────────────────
+// ── Photos body ───────────────────────────────────────────────────────────────
 
+class _PhotosBody extends ConsumerStatefulWidget {
+  final DateTime selectedDate;
+  final DateTime focusedDay;
+  final Map<String, bool> deleting;
+  final void Function(DateTime, DateTime) onDaySelected;
+  final VoidCallback onRefresh;
+  final Future<void> Function(ProgressPhoto) onDelete;
+  final AsyncValue<PhotoSession?> sessionAsync;
+
+  const _PhotosBody({
+    required this.selectedDate,
+    required this.focusedDay,
+    required this.deleting,
+    required this.onDaySelected,
+    required this.onRefresh,
+    required this.onDelete,
+    required this.sessionAsync,
+  });
+
+  @override
+  ConsumerState<_PhotosBody> createState() => _PhotosBodyState();
+}
+
+class _PhotosBodyState extends ConsumerState<_PhotosBody> {
   Widget _buildEmpty() {
-    final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final dateStr = DateFormat('yyyy-MM-dd').format(widget.selectedDate);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -201,7 +256,7 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              DateFormat('MMMM d, yyyy').format(_selectedDate),
+              DateFormat('MMMM d, yyyy').format(widget.selectedDate),
               style: const TextStyle(fontSize: 14, color: AppTheme.textMuted),
             ),
             const SizedBox(height: 32),
@@ -210,7 +265,7 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
               icon: LucideIcons.plus,
               onPressed: () async {
                 await context.push('/add-photos', extra: dateStr);
-                _refresh();
+                widget.onRefresh();
               },
             ),
           ],
@@ -219,11 +274,9 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
     );
   }
 
-  // ── Photos view ─────────────────────────────────────────────────────────────
-
   Widget _buildPhotos(PhotoSession session) {
     final photoMap = {for (final p in session.photos) p.photoType: p};
-    final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final dateStr = DateFormat('yyyy-MM-dd').format(widget.selectedDate);
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
@@ -238,7 +291,7 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      DateFormat('MMMM d, yyyy').format(_selectedDate),
+                      DateFormat('MMMM d, yyyy').format(widget.selectedDate),
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -257,7 +310,7 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
               GestureDetector(
                 onTap: () async {
                   await context.push('/add-photos', extra: dateStr);
-                  _refresh();
+                  widget.onRefresh();
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -295,9 +348,9 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
                   child: _PhotoSlot(
                     label: _photoLabels[_photoTypes[i]]!,
                     photo: photoMap[_photoTypes[i]],
-                    isDeleting: _deleting[_photoTypes[i]] == true,
+                    isDeleting: widget.deleting[_photoTypes[i]] == true,
                     onDelete: photoMap[_photoTypes[i]] != null
-                        ? () => _deletePhoto(photoMap[_photoTypes[i]]!)
+                        ? () => widget.onDelete(photoMap[_photoTypes[i]]!)
                         : null,
                     onTap: photoMap[_photoTypes[i]]?.imageUrl != null
                         ? () => _openPreview(photoMap, i)
@@ -311,8 +364,6 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
       ),
     );
   }
-
-  // ── Skeleton ─────────────────────────────────────────────────────────────────
 
   void _openPreview(Map<String, ProgressPhoto?> photoMap, int initialIndex) {
     final photos = _photoTypes
@@ -365,6 +416,85 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
                 ),
               ],
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: FitrackAppBar(
+        title: 'Photos',
+        actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.arrowLeftRight, size: 20),
+            onPressed: () => context.push('/compare'),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          TableCalendar(
+            firstDay: DateTime.utc(2020, 1, 1),
+            lastDay: DateTime.now(),
+            focusedDay: widget.focusedDay,
+            selectedDayPredicate: (day) => isSameDay(widget.selectedDate, day),
+            onDaySelected: widget.onDaySelected,
+            calendarFormat: CalendarFormat.week,
+            headerStyle: const HeaderStyle(
+              formatButtonVisible: false,
+              titleCentered: true,
+            ),
+            calendarStyle: CalendarStyle(
+              selectedDecoration: BoxDecoration(
+                color: AppTheme.primary,
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              todayDecoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A),
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              defaultDecoration: BoxDecoration(
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              weekendDecoration: BoxDecoration(
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              outsideDecoration: BoxDecoration(
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              disabledDecoration: BoxDecoration(
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          const Divider(color: Color(0xFF1A1A1A), height: 1),
+          Expanded(
+            child: widget.sessionAsync.when(
+              loading: () => _buildSkeleton(),
+              error: (e, __) {
+                // If the photos API says KYC is required, bust the cache so the
+                // parent rebuilds with the identity gate.
+                if (ErrorHandler.isKycRequired(e)) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    ref.invalidate(kycStatusProvider);
+                  });
+                }
+                return _buildEmpty();
+              },
+              data: (session) {
+                final hasPhotos = session != null && session.photos.isNotEmpty;
+                return hasPhotos ? _buildPhotos(session) : _buildEmpty();
+              },
+            ),
           ),
         ],
       ),

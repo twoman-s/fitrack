@@ -42,4 +42,13 @@ class ErrorHandler {
     }
     return 'An unexpected error occurred.';
   }
+
+  /// Returns true when the server rejected the request because KYC is not done.
+  static bool isKycRequired(dynamic error) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map && data['error'] == 'KYC_REQUIRED') return true;
+    }
+    return false;
+  }
 }

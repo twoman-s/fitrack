@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/api_config.dart';
 import '../models/dashboard.dart';
+import '../models/kyc.dart';
 import '../models/weight.dart';
 import '../models/progress.dart';
 import '../models/stats.dart';
@@ -190,5 +191,41 @@ class TrackerRepository {
   Future<StatsData> getStats() async {
     final response = await _client.get(ApiConfig.stats);
     return StatsData.fromJson(response.data);
+  }
+
+  // ── KYC ──────────────────────────────────────────────────────────────────
+
+  Future<KycStatus> getKycStatus() async {
+    final response = await _client.get(ApiConfig.kycStatus);
+    return KycStatus.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<void> submitKycConsent({
+    required bool termsAccepted,
+    required bool privacyAccepted,
+    required bool photoProcessingAccepted,
+    required bool sensitiveDataAccepted,
+    required bool adultConfirmed,
+    required bool selfPhotoConfirmed,
+  }) async {
+    await _client.post(ApiConfig.kycConsent, data: {
+      'terms_accepted': termsAccepted,
+      'privacy_accepted': privacyAccepted,
+      'photo_processing_accepted': photoProcessingAccepted,
+      'sensitive_data_accepted': sensitiveDataAccepted,
+      'adult_confirmed': adultConfirmed,
+      'self_photo_confirmed': selfPhotoConfirmed,
+    });
+  }
+
+  Future<KycStatus> completeKyc({
+    required String dob,
+    List<double>? faceEmbedding,
+  }) async {
+    final response = await _client.post(ApiConfig.kycComplete, data: {
+      'dob': dob,
+      if (faceEmbedding != null) 'face_embedding': faceEmbedding,
+    });
+    return KycStatus.fromJson(response.data as Map<String, dynamic>);
   }
 }

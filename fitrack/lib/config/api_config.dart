@@ -1,7 +1,9 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class ApiConfig {
   static String get baseUrl {
     // If not set, fallback to localhost
-    return 'https://fitrack.oopsops.in/api';
+    return dotenv.env['API_BASE_URL'] ?? 'https://fitrack.oopsops.in/api';
   }
 
   // Auth endpoints
@@ -25,4 +27,9 @@ class ApiConfig {
   static String goalDetail(int id) => '/goal/$id/';
   static const String progress = '/progress/';
   static const String stats = '/stats/';
+
+  // KYC endpoints
+  static const String kycStatus = '/kyc/status/';
+  static const String kycConsent = '/kyc/consent/';
+  static const String kycComplete = '/kyc/complete/';
 }

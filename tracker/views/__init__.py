@@ -5,6 +5,7 @@ from .dashboard_views import DashboardView
 from .goal_views import WeightGoalView, WeightGoalDetailView, WeightGoalHistoryView
 from .progress_views import ProgressView
 from .stats_views import StatsView
+from .kyc_views import KYCStatusView, KYCConsentView, KYCCompleteView
 
 __all__ = [
     'DailyWeightView',
@@ -18,4 +19,8 @@ __all__ = [
     'WeightGoalHistoryView',
     'ProgressView',
     'StatsView',
+    'KYCStatusView',
+    'KYCConsentView',
+    'KYCCompleteView',
 ]
+
