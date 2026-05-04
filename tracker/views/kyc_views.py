@@ -36,6 +36,9 @@ class KYCStatusView(APIView):
             'kyc_completed': kyc.is_completed,
             'kyc_status': kyc.status,
             'upload_enabled': kyc.is_completed,
+            # Return embedding so the client can verify uploaded photos on-device
+            # without a round-trip.  Only included when KYC is complete.
+            'face_embedding': kyc.face_embedding if kyc.is_completed else None,
         })
 
 
