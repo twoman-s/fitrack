@@ -53,7 +53,9 @@ class PhotoUploadView(APIView):
 
 
 class PhotosByDateView(APIView):
-    """Get all photos for a specific date."""
+    """Get all photos for a specific date. Requires completed KYC."""
+
+    permission_classes = [IsAuthenticated, IsKYCCompleted]
 
     def get(self, request):
         date_str = request.query_params.get('date')
@@ -81,7 +83,9 @@ class PhotosByDateView(APIView):
 
 
 class PhotoCompareView(APIView):
-    """Compare photos between two dates for a given type."""
+    """Compare photos between two dates for a given type. Requires completed KYC."""
+
+    permission_classes = [IsAuthenticated, IsKYCCompleted]
 
     def get(self, request):
         from_date = request.query_params.get('from')
@@ -120,7 +124,9 @@ class PhotoCompareView(APIView):
 
 
 class PhotoDeleteView(APIView):
-    """Delete a single progress photo by primary key."""
+    """Delete a single progress photo by primary key. Requires completed KYC."""
+
+    permission_classes = [IsAuthenticated, IsKYCCompleted]
 
     def delete(self, request, pk):
         try:
@@ -143,7 +149,9 @@ class PhotoDeleteView(APIView):
 
 
 class PhotoLatestView(APIView):
-    """Return the URL of the most recent photo for a given type."""
+    """Return the URL of the most recent photo for a given type. Requires completed KYC."""
+
+    permission_classes = [IsAuthenticated, IsKYCCompleted]
 
     def get(self, request):
         photo_type = request.query_params.get('type', 'FRONT').upper()
