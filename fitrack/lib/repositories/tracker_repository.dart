@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/api_config.dart';
+import '../models/crop_transform.dart';
 import '../models/dashboard.dart';
 import '../models/weight.dart';
 import '../models/progress.dart';
@@ -126,13 +127,30 @@ class TrackerRepository {
     required String photoType,
     required List<int> bytes,
     String filename = 'photo.jpg',
+    List<int>? normalizedBytes,
+    CropTransform? cropTransform,
   }) async {
-    final formData = FormData.fromMap({
+    final map = <String, dynamic>{
       'date': date,
       'photo_type': photoType,
       'image': MultipartFile.fromBytes(bytes, filename: filename),
-    });
+    };
 
+    if (normalizedBytes != null) {
+      map['normalized_image'] = MultipartFile.fromBytes(
+        normalizedBytes,
+        filename: 'normalized_$filename',
+      );
+    }
+
+    if (cropTransform != null) {
+      map['crop_scale'] = cropTransform.scale;
+      map['crop_offset_x'] = cropTransform.offsetX;
+      map['crop_offset_y'] = cropTransform.offsetY;
+      map['crop_aspect_ratio'] = cropTransform.aspectRatio;
+    }
+
+    final formData = FormData.fromMap(map);
     final response = await _client.post(ApiConfig.photosUpload, data: formData);
     return ProgressPhoto.fromJson(response.data);
   }
@@ -149,6 +167,28 @@ class TrackerRepository {
         queryParameters: {'type': photoType},
       );
       return response.data['image_url'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Returns the latest photo data including crop metadata for [photoType].
+  Future<Map<String, dynamic>?> getLatestPhotoWithCrop({
+    required String photoType,
+    String? excludeDate,
+  }) async {
+    try {
+      final queryParams = {'type': photoType};
+      if (excludeDate != null) {
+        queryParams['exclude_date'] = excludeDate;
+      }
+      final response = await _client.get(
+        ApiConfig.photosLatest,
+        queryParameters: queryParams,
+      );
+      final data = response.data as Map<String, dynamic>;
+      if (data['image_url'] == null) return null;
+      return data;
     } catch (_) {
       return null;
     }

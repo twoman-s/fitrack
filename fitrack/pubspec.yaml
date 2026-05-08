@@ -51,4 +51,3 @@ flutter:
   assets:
     - .env
     - assets/images/
-    - assets/camera_overlay/

@@ -24,7 +24,7 @@ class FitrackAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String? title;
   final List<Widget>? actions;
 
-  double get _toolbarHeight => isHome ? 68.0 : 56.0;
+  double get _toolbarHeight => isHome ? 76.0 : 64.0;
 
   @override
   Size get preferredSize => Size.fromHeight(_toolbarHeight + 1.0); // +1 for divider
@@ -36,24 +36,41 @@ class FitrackAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       toolbarHeight: _toolbarHeight,
       backgroundColor: AppTheme.background,
-      surfaceTintColor: Colors.transparent,
-      scrolledUnderElevation: 0,
+      surfaceTintColor: AppTheme.surfaceHighlight,
+      scrolledUnderElevation: 8.0,
       elevation: 0,
       centerTitle: false,
       automaticallyImplyLeading: false,
       leading: _buildLeading(context, canPop),
       title: _buildTitle(),
-      titleSpacing: isHome ? 20.0 : (canPop ? 0.0 : 20.0),
-      actions: actions != null
+      titleSpacing: isHome ? 24.0 : (canPop ? 0.0 : 20.0),
+      actions: isHome
           ? [
-              ...actions!,
-              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(right: 24.0),
+                child: Center(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      'assets/images/app_icon.png',
+                      width: 44,
+                      height: 44,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              ),
             ]
-          : null,
+          : (actions != null
+              ? [
+                  ...actions!,
+                  const SizedBox(width: 8),
+                ]
+              : null),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1.0),
         child: Container(
-          color: AppTheme.divider,
+          color: AppTheme.divider.withOpacity(0.5),
           height: 1.0,
         ),
       ),
@@ -72,29 +89,14 @@ class FitrackAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   Widget? _buildTitle() {
     if (isHome) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.asset(
-              'assets/images/app_icon.png',
-              width: 34,
-              height: 34,
-              fit: BoxFit.cover,
-            ),
-          ),
-          const SizedBox(width: 10),
-          const Text(
-            'Fitrack',
-            style: TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.2,
-            ),
-          ),
-        ],
+      return const Text(
+        'Fitrack',
+        style: TextStyle(
+          color: AppTheme.textPrimary,
+          fontSize: 26,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.5,
+        ),
       );
     }
 

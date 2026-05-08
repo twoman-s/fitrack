@@ -8,11 +8,13 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import '../core/error_handler.dart';
 import '../core/theme.dart';
+import '../models/crop_transform.dart';
 import '../models/dashboard.dart';
 import '../providers/dashboard_provider.dart';
 import '../repositories/tracker_repository.dart';
 import '../widgets/app_bar.dart';
 import '../widgets/app_button.dart';
+import 'crop_normalization_editor.dart';
 import 'in_app_camera_screen.dart';
 import 'photo_progress_screen.dart';
 
@@ -43,6 +45,12 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
 
   /// Preloaded bytes for preview, keyed by photo type.
   final Map<String, Uint8List> _previewBytes = {};
+
+  /// Normalized (cropped) bytes from crop editor, keyed by photo type.
+  final Map<String, Uint8List> _normalizedBytes = {};
+
+  /// Crop transforms from crop editor, keyed by photo type.
+  final Map<String, CropTransform> _cropTransforms = {};
 
   bool _isSaving = false;
 
@@ -129,18 +137,20 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
     if (source == null || !mounted) return;
 
     if (source == ImageSource.camera) {
-      final xFile = await Navigator.of(context, rootNavigator: true).push<XFile>(
+      final result = await Navigator.of(context, rootNavigator: true).push<CropResult>(
         MaterialPageRoute(
           fullscreenDialog: true,
           builder: (_) => InAppCameraScreen(photoType: photoType),
         ),
       );
-      if (xFile == null || !mounted) return;
-      final bytes = await xFile.readAsBytes();
-      if (!mounted) return;
+      if (result == null || !mounted) return;
       setState(() {
-        _selected[photoType] = xFile;
-        _previewBytes[photoType] = bytes;
+        // Store the normalized preview for display
+        _previewBytes[photoType] = result.normalizedBytes;
+        _normalizedBytes[photoType] = result.normalizedBytes;
+        _cropTransforms[photoType] = result.cropTransform;
+        // Keep a dummy XFile marker so _selected.isNotEmpty works
+        _selected[photoType] = XFile.fromData(result.originalBytes, name: '${photoType.toLowerCase()}.jpg');
       });
     } else {
       await _pick(photoType, source);
@@ -151,7 +161,7 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
   void _openPreview(Map<String, ProgressPhoto> existing, int initialIndex) {
     final photos = _photoTypes
         .map((t) => existing[t])
-        .where((p) => p?.imageUrl != null)
+        .where((p) => p?.displayUrl != null)
         .cast<ProgressPhoto>()
         .toList();
     if (photos.isEmpty) return;
@@ -192,11 +202,16 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
         final bytes = _previewBytes[entry.key];
         if (bytes == null) continue;
         final filename = '${widget.date}_${entry.key.toLowerCase()}.jpg';
+        final normalizedBytes = _normalizedBytes[entry.key];
+        final cropTransform = _cropTransforms[entry.key];
+
         await repo.uploadPhotoBytes(
           date: widget.date,
           photoType: entry.key,
           bytes: bytes,
           filename: filename,
+          normalizedBytes: normalizedBytes,
+          cropTransform: cropTransform,
         );
         uploaded++;
       } catch (e) {
@@ -290,6 +305,8 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
                                 ? () => setState(() {
                                         _selected.remove(_photoTypes[i]);
                                         _previewBytes.remove(_photoTypes[i]);
+                                        _normalizedBytes.remove(_photoTypes[i]);
+                                        _cropTransforms.remove(_photoTypes[i]);
                                       })
                                 : null,
                           ),
@@ -318,7 +335,7 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
                             child: _ReadOnlySlot(
                               label: _photoLabels[_photoTypes[i]]!,
                               photo: existing[_photoTypes[i]],
-                              onTap: existing[_photoTypes[i]]?.imageUrl != null
+                              onTap: existing[_photoTypes[i]]?.displayUrl != null
                                   ? () => _openPreview(existing, i)
                                   : null,
                             ),
@@ -394,12 +411,12 @@ class _EditSlot extends StatelessWidget {
               // ── Preview ──────────────────────────────────────────
               if (hasLocal)
                 Image.memory(previewBytes!, fit: BoxFit.cover)
-              else if (existingPhoto?.imageUrl != null)
+              else if (existingPhoto?.displayUrl != null)
                 Stack(
                   fit: StackFit.expand,
                   children: [
                     Image.network(
-                      existingPhoto!.imageUrl!,
+                      existingPhoto!.displayUrl!,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => const Center(
                         child: Icon(LucideIcons.imageOff,
@@ -510,9 +527,9 @@ class _ReadOnlySlot extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (photo?.imageUrl != null)
+            if (photo?.displayUrl != null)
               Image.network(
-                photo!.imageUrl!,
+                photo!.displayUrl!,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => const Center(
                   child: Icon(LucideIcons.imageOff,

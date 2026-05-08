@@ -1,7 +1,7 @@
 class ApiConfig {
   static String get baseUrl {
     // If not set, fallback to localhost
-    return 'https://fitrack.oopsops.in/api';
+    return 'http://localhost:45458/api';
   }
 
   // Auth endpoints
