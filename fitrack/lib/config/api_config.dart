@@ -3,7 +3,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class ApiConfig {
   static String get baseUrl {
     // If not set, fallback to localhost
-    return dotenv.env['API_BASE_URL'] ?? 'https://fitrack.oopsops.in/api';
+    return 'https://fitrackbeta.oopsops.in/api';
   }
 
   // Auth endpoints

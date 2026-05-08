@@ -21,7 +21,7 @@ android {
 
     defaultConfig {
         applicationId = "in.oopsops.fitrack"
-        minSdk = flutter.minSdkVersion
+        minSdk = 26
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
