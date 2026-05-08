@@ -4,6 +4,9 @@ from .models import (
     DailyWeightEntry,
     ProgressPhoto,
     ProgressPhotoSession,
+    UserConsent,
+    UserKYC,
+    WeightGoal,
     WorkoutCheckin,
 )
 
@@ -45,3 +48,30 @@ class WorkoutCheckinAdmin(admin.ModelAdmin):
     @admin.display(description='Activity Count')
     def count(self, obj):
         return obj.count
+
+
+@admin.register(WeightGoal)
+class WeightGoalAdmin(admin.ModelAdmin):
+    list_display = ('user', 'goal_type', 'current_weight', 'target_weight', 'start_date', 'target_date', 'is_active')
+    list_filter = ('goal_type', 'is_active')
+    search_fields = ('user__username',)
+    ordering = ('-created_at',)
+    date_hierarchy = 'start_date'
+
+
+@admin.register(UserKYC)
+class UserKYCAdmin(admin.ModelAdmin):
+    list_display = ('user', 'status', 'is_completed', 'age_confirmed', 'dob', 'completed_at', 'updated_at')
+    list_filter = ('status', 'is_completed', 'age_confirmed')
+    search_fields = ('user__username',)
+    ordering = ('-updated_at',)
+    readonly_fields = ('face_embedding', 'created_at', 'updated_at', 'completed_at')
+
+
+@admin.register(UserConsent)
+class UserConsentAdmin(admin.ModelAdmin):
+    list_display = ('user', 'consent_version', 'terms_accepted', 'privacy_accepted', 'photo_processing_accepted', 'accepted_at')
+    list_filter = ('consent_version', 'terms_accepted', 'privacy_accepted')
+    search_fields = ('user__username',)
+    ordering = ('-accepted_at',)
+    readonly_fields = ('accepted_at', 'ip_address', 'user_agent')
