@@ -9,6 +9,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/error_handler.dart';
 import '../../core/theme.dart';
 import '../../repositories/tracker_repository.dart';
+import '../../services/face_verification_service.dart';
 import '../../widgets/app_button.dart';
 
 class KycAgeScreen extends ConsumerStatefulWidget {
@@ -61,9 +62,12 @@ class _KycAgeScreenState extends ConsumerState<KycAgeScreen> {
     try {
       final dobStr = DateFormat('yyyy-MM-dd').format(_dob!);
 
-      // Build a lightweight pseudo-embedding from selfie bytes (placeholder).
-      // In a production app, tflite_flutter would run MobileFaceNet here.
-      final embedding = _buildPseudoEmbedding(widget.selfieBytes);
+      // Build a landmark-based face embedding from the captured selfie.
+      // Falls back to an empty list if no face can be detected (rare in practice
+      // since the selfie screen already confirmed a face was present).
+      final embedding = widget.selfieBytes != null
+          ? await FaceVerificationService.buildLandmarkEmbedding(widget.selfieBytes!) ?? []
+          : <double>[];
 
       await ref.read(trackerRepositoryProvider).completeKyc(
             dob: dobStr,
@@ -78,20 +82,6 @@ class _KycAgeScreenState extends ConsumerState<KycAgeScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  /// Builds a 512-float descriptor by evenly sampling across all image bytes
-  /// and normalising each to [-1, 1].  This is a structural placeholder —
-  /// replace with a real tflite_flutter MobileFaceNet call for production-grade
-  /// face-matching accuracy.
-  List<double> _buildPseudoEmbedding(Uint8List? bytes) {
-    if (bytes == null || bytes.isEmpty) return List.filled(512, 0.0);
-    const dims = 512;
-    final step = bytes.length / dims;
-    return List<double>.generate(dims, (i) {
-      final idx = (i * step).round().clamp(0, bytes.length - 1);
-      return (bytes[idx] - 128.0) / 128.0;
-    });
   }
 
   @override

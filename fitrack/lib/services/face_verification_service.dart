@@ -1,36 +1,115 @@
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-/// On-device face verification using the same pseudo-embedding algorithm that
-/// was applied during KYC (`_buildPseudoEmbedding` in `KycAgeScreen`).
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+
+/// On-device face verification using ML Kit face landmark geometry.
 ///
-/// The embedding is a 512-float descriptor built by evenly sampling across all
-/// image bytes and normalising each sample to [-1, 1].  Similarity is measured
-/// with cosine distance, which is invariant to brightness/contrast shifts.
+/// The embedding is a 20-float vector of face landmark positions normalised by
+/// the inter-ocular distance (IOD), making it invariant to image scale and
+/// translation.  Cosine similarity on this geometric descriptor reliably
+/// distinguishes the same person across different photos of the same person.
+///
+/// Landmark order (fixed, 2 floats each):
+///   leftEye, rightEye, noseBase, bottomMouth, leftMouth, rightMouth,
+///   leftCheek, rightCheek, leftEar, rightEar  →  20 floats total.
 class FaceVerificationService {
-  /// Minimum cosine similarity to accept a photo as belonging to the KYC user.
-  static const double kMinConfidence = 0.88;
+  /// Minimum cosine similarity (landmark-based) to accept a photo as the KYC user.
+  static const double kMinConfidence = 0.82;
+
+  /// Expected embedding length produced by [buildLandmarkEmbedding].
+  static const int kEmbeddingLength = 20;
 
   const FaceVerificationService._();
 
-  // ── Embedding ─────────────────────────────────────────────────────────────
+  // ── Landmark embedding ────────────────────────────────────────────────────
 
-  /// Build a 512-float pseudo-embedding from [bytes].
-  /// Must match `_buildPseudoEmbedding` in `kyc_age_screen.dart` exactly.
-  static List<double> buildEmbedding(Uint8List bytes) {
-    if (bytes.isEmpty) return List.filled(512, 0.0);
-    const dims = 512;
-    final step = bytes.length / dims;
-    return List<double>.generate(dims, (i) {
-      final idx = (i * step).round().clamp(0, bytes.length - 1);
-      return (bytes[idx] - 128.0) / 128.0;
-    });
+  /// Detects the largest face in [jpegBytes] and returns a 20-float landmark
+  /// embedding normalised by inter-ocular distance.
+  ///
+  /// Returns `null` if no face is detected or the eyes cannot be located.
+  static Future<List<double>?> buildLandmarkEmbedding(Uint8List jpegBytes) async {
+    File? tempFile;
+    FaceDetector? detector;
+    try {
+      // ML Kit needs a file path on mobile to decode JPEG
+      final tempPath =
+          '${Directory.systemTemp.path}/fv_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      tempFile = File(tempPath);
+      await tempFile.writeAsBytes(jpegBytes, flush: true);
+
+      final inputImage = InputImage.fromFilePath(tempFile.path);
+      detector = FaceDetector(
+        options: FaceDetectorOptions(
+          enableLandmarks: true,
+          performanceMode: FaceDetectorMode.accurate,
+        ),
+      );
+
+      final faces = await detector.processImage(inputImage);
+      if (faces.isEmpty) return null;
+
+      // Use the largest face
+      faces.sort((a, b) =>
+          (b.boundingBox.width * b.boundingBox.height)
+              .compareTo(a.boundingBox.width * a.boundingBox.height));
+      final face = faces.first;
+
+      // Require both eyes for normalisation anchor
+      final leftEyeLm = face.landmarks[FaceLandmarkType.leftEye];
+      final rightEyeLm = face.landmarks[FaceLandmarkType.rightEye];
+      if (leftEyeLm == null || rightEyeLm == null) return null;
+
+      final cx = (leftEyeLm.position.x + rightEyeLm.position.x) / 2.0;
+      final cy = (leftEyeLm.position.y + rightEyeLm.position.y) / 2.0;
+      final iod = math.sqrt(
+        math.pow(rightEyeLm.position.x - leftEyeLm.position.x, 2) +
+            math.pow(rightEyeLm.position.y - leftEyeLm.position.y, 2),
+      );
+      if (iod < 1e-6) return null;
+
+      // Extract all 10 landmarks in fixed order (missing → 0.0)
+      const order = [
+        FaceLandmarkType.leftEye,
+        FaceLandmarkType.rightEye,
+        FaceLandmarkType.noseBase,
+        FaceLandmarkType.bottomMouth,
+        FaceLandmarkType.leftMouth,
+        FaceLandmarkType.rightMouth,
+        FaceLandmarkType.leftCheek,
+        FaceLandmarkType.rightCheek,
+        FaceLandmarkType.leftEar,
+        FaceLandmarkType.rightEar,
+      ];
+
+      final embedding = <double>[];
+      for (final type in order) {
+        final lm = face.landmarks[type];
+        if (lm != null) {
+          embedding.add((lm.position.x - cx) / iod);
+          embedding.add((lm.position.y - cy) / iod);
+        } else {
+          embedding
+            ..add(0.0)
+            ..add(0.0);
+        }
+      }
+      return embedding; // always kEmbeddingLength floats
+    } catch (_) {
+      return null;
+    } finally {
+      await detector?.close();
+      try {
+        await tempFile?.delete();
+      } catch (_) {}
+    }
   }
 
   // ── Similarity ────────────────────────────────────────────────────────────
 
-  /// Cosine similarity between two vectors. Returns a value in [-1, 1].
-  /// Returns 0.0 if either vector is all-zeros.
+  /// Cosine similarity between two equal-length vectors. Returns a value in
+  /// [-1, 1]. Returns 0.0 if either vector is all-zeros.
   static double cosineSimilarity(List<double> a, List<double> b) {
     assert(a.length == b.length, 'Embedding dimensions must match');
     double dot = 0.0;
@@ -51,16 +130,16 @@ class FaceVerificationService {
 
   /// Verify that [photoBytes] belongs to the same person as [kycEmbedding].
   ///
-  /// Returns a [FaceVerificationResult] with the similarity score and whether
-  /// it meets the required confidence threshold.
-  static FaceVerificationResult verify({
+  /// [kycEmbedding] must have length [kEmbeddingLength] (landmark-based).
+  /// Returns `null` if no face can be detected in [photoBytes].
+  static Future<FaceVerificationResult?> verifyPhoto({
     required Uint8List photoBytes,
     required List<double> kycEmbedding,
-  }) {
-    final photoEmbedding = buildEmbedding(photoBytes);
+  }) async {
+    final photoEmbedding = await buildLandmarkEmbedding(photoBytes);
+    if (photoEmbedding == null) return null;
+
     final similarity = cosineSimilarity(photoEmbedding, kycEmbedding);
-    // Cosine similarity of the pseudo-embedding ranges [-1, 1]; clamp to [0, 1]
-    // and express as a percentage confidence value.
     final confidence = similarity.clamp(0.0, 1.0);
     return FaceVerificationResult(
       confidence: confidence,

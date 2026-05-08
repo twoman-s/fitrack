@@ -132,7 +132,10 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
       if (!mounted) return;
       setState(() => _deleting.remove(photo.photoType));
 
-      final result = await Navigator.of(context).push<CropResult>(
+      // Use rootNavigator so the crop editor lives on the root Navigator,
+      // not GoRouter's Navigator. This prevents GoRouter page-reconciliation
+      // (e.g. kycStatusProvider refetch) from interfering with the route.
+      final result = await Navigator.of(context, rootNavigator: true).push<CropResult>(
         MaterialPageRoute(
           builder: (_) => CropNormalizationEditor(
             imageBytes: bytes,
@@ -184,6 +187,7 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
           },
           onRefresh: _refresh,
           onDelete: _deletePhoto,
+          onRecrop: _recropPhoto,
           sessionAsync: ref.watch(photosByDateProvider(_selectedDate)),
         );
       },
@@ -261,6 +265,7 @@ class _PhotosBody extends ConsumerStatefulWidget {
   final void Function(DateTime, DateTime) onDaySelected;
   final VoidCallback onRefresh;
   final Future<void> Function(ProgressPhoto) onDelete;
+  final Future<void> Function(ProgressPhoto) onRecrop;
   final AsyncValue<PhotoSession?> sessionAsync;
 
   const _PhotosBody({
@@ -270,6 +275,7 @@ class _PhotosBody extends ConsumerStatefulWidget {
     required this.onDaySelected,
     required this.onRefresh,
     required this.onDelete,
+    required this.onRecrop,
     required this.sessionAsync,
   });
 
@@ -404,7 +410,7 @@ class _PhotosBodyState extends ConsumerState<_PhotosBody> {
                         ? () => widget.onDelete(photoMap[_photoTypes[i]]!)
                         : null,
                     onCrop: photoMap[_photoTypes[i]] != null
-                        ? () => _recropPhoto(photoMap[_photoTypes[i]]!)
+                        ? () => widget.onRecrop(photoMap[_photoTypes[i]]!)
                         : null,
                     onTap: photoMap[_photoTypes[i]]?.displayUrl != null
                         ? () => _openPreview(photoMap, i)

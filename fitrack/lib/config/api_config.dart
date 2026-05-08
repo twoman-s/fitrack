@@ -32,4 +32,5 @@ class ApiConfig {
   static const String kycStatus = '/kyc/status/';
   static const String kycConsent = '/kyc/consent/';
   static const String kycComplete = '/kyc/complete/';
+  static const String kycUpdateEmbedding = '/kyc/update-embedding/';
 }

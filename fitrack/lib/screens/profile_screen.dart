@@ -6,12 +6,17 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../core/theme.dart';
 import '../models/user_profile.dart';
 import '../providers/auth_provider.dart';
+import '../providers/kyc_provider.dart';
 import '../providers/progress_provider.dart';
 import '../providers/stats_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../repositories/auth_repository.dart';
+import '../repositories/tracker_repository.dart';
+import '../screens/in_app_camera_screen.dart';
+import '../services/face_verification_service.dart';
 import '../widgets/app_button.dart';
 import '../widgets/skeleton.dart';
+import 'crop_normalization_editor.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -101,6 +106,13 @@ class ProfileScreen extends ConsumerWidget {
                     subtitle: 'Update your account password',
                     onTap: () => _showChangePassword(context, ref),
                   ),
+                  _MenuItem(
+                    icon: LucideIcons.scanFace,
+                    iconColor: const Color(0xFF8B5CF6),
+                    title: 'Update Face Scan',
+                    subtitle: 'Retake selfie for photo verification',
+                    onTap: () => _updateFaceScan(context, ref),
+                  ),
                 ]),
 
                 const SizedBox(height: 12),
@@ -122,6 +134,47 @@ class ProfileScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  // ── Update face scan ─────────────────────────────────────────────────────
+
+  Future<void> _updateFaceScan(BuildContext context, WidgetRef ref) async {
+    // Open the in-app camera (FRONT pose) to capture a fresh selfie.
+    final cropResult =
+        await Navigator.of(context, rootNavigator: true).push<CropResult>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => const InAppCameraScreen(photoType: 'FRONT'),
+      ),
+    );
+    if (cropResult == null || !context.mounted) return;
+
+    // Extract face embedding from the captured photo.
+    final embedding = await FaceVerificationService.buildLandmarkEmbedding(
+        cropResult.normalizedBytes);
+
+    if (!context.mounted) return;
+
+    if (embedding == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('No face detected. Please try again in good lighting.')));
+      return;
+    }
+
+    try {
+      await ref.read(trackerRepositoryProvider).updateKycEmbedding(embedding);
+      // Force a fresh fetch so the live camera overlay picks up the new embedding.
+      ref.invalidate(kycStatusProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Face scan updated successfully.')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to update: $e')));
+      }
+    }
   }
 
   // ── Edit profile sheet ───────────────────────────────────────────────────

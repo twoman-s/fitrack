@@ -17,6 +17,7 @@ from tracker.views import (
     KYCStatusView,
     KYCConsentView,
     KYCCompleteView,
+    KYCUpdateEmbeddingView,
 )
 
 app_name = 'tracker'
@@ -53,4 +54,5 @@ urlpatterns = [
     path('kyc/status/', KYCStatusView.as_view(), name='kyc_status'),
     path('kyc/consent/', KYCConsentView.as_view(), name='kyc_consent'),
     path('kyc/complete/', KYCCompleteView.as_view(), name='kyc_complete'),
+    path('kyc/update-embedding/', KYCUpdateEmbeddingView.as_view(), name='kyc_update_embedding'),
 ]

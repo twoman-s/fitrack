@@ -9,7 +9,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import '../core/error_handler.dart';
 import '../core/theme.dart';
-import '../models/crop_transform.dart';
 import '../models/dashboard.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/kyc_provider.dart';
@@ -42,17 +41,13 @@ class AddPhotosScreen extends ConsumerStatefulWidget {
 }
 
 class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
-  /// Locally selected files (XFile), keyed by photo type. Not yet uploaded.
-  final Map<String, XFile> _selected = {};
+  /// Sentinel map indicating which photo types have been locally selected.
+  /// Values are either [XFile] (gallery) or [CropResult] (camera) — only the
+  /// key is ever read; bytes are stored separately in [_previewBytes].
+  final Map<String, Object> _selected = {};
 
   /// Preloaded bytes for preview, keyed by photo type.
   final Map<String, Uint8List> _previewBytes = {};
-
-  /// Normalized (cropped) bytes from crop editor, keyed by photo type.
-  final Map<String, Uint8List> _normalizedBytes = {};
-
-  /// Crop transforms from crop editor, keyed by photo type.
-  final Map<String, CropTransform> _cropTransforms = {};
 
   bool _isSaving = false;
 
@@ -76,7 +71,7 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
     final bytes = await picked.readAsBytes();
     if (!mounted) return;
     setState(() {
-      _selected[photoType] = picked;
+      _selected[photoType] = picked; // XFile sentinel
       _previewBytes[photoType] = bytes;
     });
   }
@@ -139,31 +134,33 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
     if (source == null || !mounted) return;
 
     if (source == ImageSource.camera) {
-      final result = await Navigator.of(context, rootNavigator: true).push<CropResult>(
+      // Push as CropResult — InAppCameraScreen returns a CropResult (via
+      // CropNormalizationEditor), not a raw XFile. Using the wrong type
+      // parameter causes a runtime TypeError inside Route.didComplete which
+      // permanently leaves _debugLocked=true on Flutter's navigator.
+      final cropResult =
+          await Navigator.of(context, rootNavigator: true).push<CropResult>(
         MaterialPageRoute(
           fullscreenDialog: true,
           builder: (_) => InAppCameraScreen(photoType: photoType),
         ),
       );
-      if (result == null || !mounted) return;
+      if (cropResult == null || !mounted) return;
       setState(() {
-        // Store the normalized preview for display
-        _previewBytes[photoType] = result.normalizedBytes;
-        _normalizedBytes[photoType] = result.normalizedBytes;
-        _cropTransforms[photoType] = result.cropTransform;
-        // Keep a dummy XFile marker so _selected.isNotEmpty works
-        _selected[photoType] = XFile.fromData(result.originalBytes, name: '${photoType.toLowerCase()}.jpg');
+        _selected[photoType] = cropResult; // CropResult sentinel
+        _previewBytes[photoType] = cropResult.normalizedBytes;
       });
     } else {
       await _pick(photoType, source);
     }
   }
-  // ── Preview ──────────────────────────────────────────────────────────────────
+
+  // ── Preview ───────────────────────────────────────────────────────────────
 
   void _openPreview(Map<String, ProgressPhoto> existing, int initialIndex) {
     final photos = _photoTypes
         .map((t) => existing[t])
-        .where((p) => p?.displayUrl != null)
+        .where((p) => p?.imageUrl != null)
         .cast<ProgressPhoto>()
         .toList();
     if (photos.isEmpty) return;
@@ -193,6 +190,7 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
     }
 
     setState(() => _isSaving = true);
+
     final repo = ref.read(trackerRepositoryProvider);
     int uploaded = 0;
     String? lastError;
@@ -204,16 +202,11 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
         final bytes = _previewBytes[entry.key];
         if (bytes == null) continue;
         final filename = '${widget.date}_${entry.key.toLowerCase()}.jpg';
-        final normalizedBytes = _normalizedBytes[entry.key];
-        final cropTransform = _cropTransforms[entry.key];
-
         await repo.uploadPhotoBytes(
           date: widget.date,
           photoType: entry.key,
           bytes: bytes,
           filename: filename,
-          normalizedBytes: normalizedBytes,
-          cropTransform: cropTransform,
         );
         uploaded++;
       } catch (e) {
@@ -230,21 +223,15 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
 
     if (!mounted) return;
 
-    setState(() => _isSaving = false);
-
     if (lastError != null && uploaded == 0) {
+      // All uploads failed — stay on screen and show error.
+      setState(() => _isSaving = false);
       ErrorHandler.showSnackBar(context, lastError);
       return;
     }
 
-    // Invalidate providers so photos screen refreshes.
-    // Also clear Flutter's in-memory image cache so no stale images are shown.
-    PaintingBinding.instance.imageCache.clear();
-    ref.invalidate(photosByDateProvider(date));
-    ref.invalidate(dashboardProvider);
-
     if (lastError != null) {
-      // Partial success — show warning then pop.
+      // Partial success — show warning before popping.
       ErrorHandler.showSnackBar(
         context,
         'Some photos failed to upload.',
@@ -252,7 +239,18 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
       );
     }
 
+    // Pop FIRST, then schedule provider invalidations for the next frame.
+    // Calling ref.invalidate() and Navigator.pop() in the same synchronous
+    // block schedules both a provider rebuild and a Navigator mutation for the
+    // same frame, which can set _debugLocked while the Navigator is building
+    // and trigger the !_debugLocked assertion.
     if (mounted) Navigator.of(context).pop();
+    PaintingBinding.instance.imageCache.clear();
+    // Defer invalidations so they never race with Navigator.pop().
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(photosByDateProvider(date));
+      ref.invalidate(dashboardProvider);
+    });
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -314,8 +312,6 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
                                 ? () => setState(() {
                                         _selected.remove(_photoTypes[i]);
                                         _previewBytes.remove(_photoTypes[i]);
-                                        _normalizedBytes.remove(_photoTypes[i]);
-                                        _cropTransforms.remove(_photoTypes[i]);
                                       })
                                 : null,
                           ),
@@ -344,7 +340,7 @@ class _AddPhotosScreenState extends ConsumerState<AddPhotosScreen> {
                             child: _ReadOnlySlot(
                               label: _photoLabels[_photoTypes[i]]!,
                               photo: existing[_photoTypes[i]],
-                              onTap: existing[_photoTypes[i]]?.displayUrl != null
+                              onTap: existing[_photoTypes[i]]?.imageUrl != null
                                   ? () => _openPreview(existing, i)
                                   : null,
                             ),
@@ -420,12 +416,12 @@ class _EditSlot extends StatelessWidget {
               // ── Preview ──────────────────────────────────────────
               if (hasLocal)
                 Image.memory(previewBytes!, fit: BoxFit.cover)
-              else if (existingPhoto?.displayUrl != null)
+              else if (existingPhoto?.imageUrl != null)
                 Stack(
                   fit: StackFit.expand,
                   children: [
                     Image.network(
-                      existingPhoto!.displayUrl!,
+                      existingPhoto!.imageUrl!,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => const Center(
                         child: Icon(LucideIcons.imageOff,
@@ -536,9 +532,9 @@ class _ReadOnlySlot extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (photo?.displayUrl != null)
+            if (photo?.imageUrl != null)
               Image.network(
-                photo!.displayUrl!,
+                photo!.imageUrl!,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => const Center(
                   child: Icon(LucideIcons.imageOff,

@@ -144,6 +144,7 @@ class _CropNormalizationEditorState
     setState(() => _isSaving = true);
 
     try {
+
       // Normalize offset to 1080x1440 space
       final normOffsetX = _frameW > 0 ? _offsetX * (kNormalizedWidth / _frameW) : 0.0;
       final normOffsetY = _frameH > 0 ? _offsetY * (kNormalizedHeight / _frameH) : 0.0;

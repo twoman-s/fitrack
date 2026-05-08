@@ -139,4 +139,61 @@ class KYCCompleteView(APIView):
             'kyc_completed': True,
             'kyc_status': 'approved',
             'upload_enabled': True,
+            'face_embedding': kyc.face_embedding,
         }, status=status.HTTP_200_OK)
+
+
+class KYCUpdateEmbeddingView(APIView):
+    """PATCH /kyc/update-embedding/
+
+    Allows an already-approved user to update their stored face embedding
+    without going through the full KYC flow again.  Useful when KYC was
+    completed before the embedding feature existed (face_embedding = null).
+    """
+
+    parser_classes = [JSONParser]
+
+    def patch(self, request):
+        user = request.user
+        kyc = getattr(user, 'kyc', None)
+
+        if kyc is None or not kyc.is_completed:
+            return Response(
+                {'error': 'KYC must be completed before updating the embedding.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        raw_embedding = request.data.get('face_embedding')
+        if not raw_embedding:
+            return Response(
+                {'error': 'face_embedding is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        face_embedding = None
+        if isinstance(raw_embedding, str):
+            try:
+                face_embedding = json.loads(raw_embedding)
+            except (ValueError, TypeError):
+                return Response(
+                    {'error': 'Invalid face_embedding format.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        elif isinstance(raw_embedding, list):
+            face_embedding = raw_embedding
+
+        if not face_embedding:
+            return Response(
+                {'error': 'face_embedding must be a non-empty list of floats.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        kyc.face_embedding = face_embedding
+        kyc.save(update_fields=['face_embedding'])
+
+        return Response({
+            'kyc_completed': True,
+            'kyc_status': kyc.status,
+            'upload_enabled': True,
+            'face_embedding': kyc.face_embedding,
+        })

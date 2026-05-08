@@ -60,11 +60,13 @@ class _HomeDashboardState extends ConsumerState<HomeDashboard> with RouteAware {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Refresh data whenever we return to this screen
+    // Refresh data whenever we return to this screen.
+    // Use addPostFrameCallback instead of Future.microtask: on web, microtasks
+    // can fire during an active drawFrame/build cycle and trigger the
+    // Navigator._debugLocked assertion when combined with GoRouter rebuilds.
     final route = ModalRoute.of(context);
     if (route != null && route.isCurrent) {
-      // Small delay to ensure the UI is ready
-      Future.microtask(() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           ref.invalidate(dashboardProvider);
         }

@@ -268,4 +268,13 @@ class TrackerRepository {
     });
     return KycStatus.fromJson(response.data as Map<String, dynamic>);
   }
+
+  /// Updates only the face embedding for an already-approved KYC user.
+  /// Call this when [KycStatus.faceEmbedding] is null after KYC was done
+  /// before the embedding feature existed.
+  Future<void> updateKycEmbedding(List<double> embedding) async {
+    await _client.patch(ApiConfig.kycUpdateEmbedding, data: {
+      'face_embedding': embedding,
+    });
+  }
 }
