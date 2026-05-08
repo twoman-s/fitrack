@@ -1,12 +1,16 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:dio/dio.dart' as dio;
+
 import '../core/theme.dart';
 import '../core/error_handler.dart';
 import '../repositories/tracker_repository.dart';
+import 'crop_normalization_editor.dart';
 import '../models/dashboard.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/kyc_provider.dart';
@@ -107,6 +111,53 @@ class _PhotoProgressScreenState extends ConsumerState<PhotoProgressScreen> {
         return;
       }
       ErrorHandler.showSnackBar(context, ErrorHandler.getErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _deleting.remove(photo.photoType));
+    }
+  }
+
+  Future<void> _recropPhoto(ProgressPhoto photo) async {
+    setState(() => _deleting[photo.photoType] = true); // Use deleting state for loading indicator
+
+    try {
+      if (photo.imageUrl == null) throw Exception('No original image found');
+
+      // Download original image bytes
+      final response = await dio.Dio().get<List<int>>(
+        photo.imageUrl!,
+        options: dio.Options(responseType: dio.ResponseType.bytes),
+      );
+      final bytes = Uint8List.fromList(response.data!);
+
+      if (!mounted) return;
+      setState(() => _deleting.remove(photo.photoType));
+
+      final result = await Navigator.of(context).push<CropResult>(
+        MaterialPageRoute(
+          builder: (_) => CropNormalizationEditor(
+            imageBytes: bytes,
+            photoType: photo.photoType,
+            excludeDate: DateFormat('yyyy-MM-dd').format(_selectedDate),
+          ),
+        ),
+      );
+
+      if (result != null && mounted) {
+        setState(() => _deleting[photo.photoType] = true);
+        final repo = ref.read(trackerRepositoryProvider);
+        await repo.uploadPhotoBytes(
+          date: DateFormat('yyyy-MM-dd').format(_selectedDate),
+          photoType: photo.photoType,
+          bytes: result.originalBytes,
+          normalizedBytes: result.normalizedBytes,
+          cropTransform: result.cropTransform,
+        );
+        PaintingBinding.instance.imageCache.clear();
+        ref.invalidate(dashboardProvider);
+        _refresh();
+      }
+    } catch (e) {
+      if (mounted) ErrorHandler.showSnackBar(context, ErrorHandler.getErrorMessage(e));
     } finally {
       if (mounted) setState(() => _deleting.remove(photo.photoType));
     }
@@ -352,7 +403,10 @@ class _PhotosBodyState extends ConsumerState<_PhotosBody> {
                     onDelete: photoMap[_photoTypes[i]] != null
                         ? () => widget.onDelete(photoMap[_photoTypes[i]]!)
                         : null,
-                    onTap: photoMap[_photoTypes[i]]?.imageUrl != null
+                    onCrop: photoMap[_photoTypes[i]] != null
+                        ? () => _recropPhoto(photoMap[_photoTypes[i]]!)
+                        : null,
+                    onTap: photoMap[_photoTypes[i]]?.displayUrl != null
                         ? () => _openPreview(photoMap, i)
                         : null,
                   ),
@@ -368,7 +422,7 @@ class _PhotosBodyState extends ConsumerState<_PhotosBody> {
   void _openPreview(Map<String, ProgressPhoto?> photoMap, int initialIndex) {
     final photos = _photoTypes
         .map((t) => photoMap[t])
-        .where((p) => p?.imageUrl != null)
+        .where((p) => p?.displayUrl != null)
         .cast<ProgressPhoto>()
         .toList();
     if (photos.isEmpty) return;
@@ -509,6 +563,7 @@ class _PhotoSlot extends StatelessWidget {
   final ProgressPhoto? photo;
   final bool isDeleting;
   final VoidCallback? onDelete;
+  final VoidCallback? onCrop;
   final VoidCallback? onTap;
 
   const _PhotoSlot({
@@ -516,6 +571,7 @@ class _PhotoSlot extends StatelessWidget {
     required this.photo,
     required this.isDeleting,
     this.onDelete,
+    this.onCrop,
     this.onTap,
   });
 
@@ -538,9 +594,9 @@ class _PhotoSlot extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
           children: [
-            if (photo != null && photo!.imageUrl != null)
+            if (photo != null && photo!.displayUrl != null)
               Image.network(
-                photo!.imageUrl!,
+                photo!.displayUrl!,
                 fit: BoxFit.cover,
                 loadingBuilder: (_, child, progress) => progress == null
                     ? child
@@ -594,15 +650,30 @@ class _PhotoSlot extends StatelessWidget {
                       color: AppTheme.primary, strokeWidth: 2),
                 ),
               ),
-            if (photo != null && !isDeleting && onDelete != null)
+            if (photo != null && !isDeleting && (onDelete != null || onCrop != null))
               Positioned(
                 top: 6,
                 right: 6,
-                child: _OverlayIconButton(
-                  icon: LucideIcons.trash2,
-                  onTap: onDelete!,
-                  tooltip: 'Delete',
-                  destructive: true,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (onCrop != null) ...[
+                      _OverlayIconButton(
+                        icon: LucideIcons.crop,
+                        onTap: onCrop!,
+                        tooltip: 'Recrop',
+                        destructive: false,
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    if (onDelete != null)
+                      _OverlayIconButton(
+                        icon: LucideIcons.trash2,
+                        onTap: onDelete!,
+                        tooltip: 'Delete',
+                        destructive: true,
+                      ),
+                  ],
                 ),
               ),
           ],
@@ -724,7 +795,7 @@ class PhotoPreviewSheetState extends State<PhotoPreviewSheet> {
               return InteractiveViewer(
                 child: Center(
                   child: Image.network(
-                    photo.imageUrl!,
+                    photo.displayUrl!,
                     fit: BoxFit.contain,
                     loadingBuilder: (_, child, progress) => progress == null
                         ? child

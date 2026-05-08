@@ -7,16 +7,28 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
     """Serializer for individual progress photos with absolute URL."""
 
     image_url = serializers.SerializerMethodField()
+    normalized_image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = ProgressPhoto
-        fields = ['id', 'photo_type', 'image', 'image_url', 'uploaded_at']
+        fields = [
+            'id', 'photo_type', 'image', 'image_url',
+            'normalized_image_url',
+            'crop_scale', 'crop_offset_x', 'crop_offset_y', 'crop_aspect_ratio',
+            'uploaded_at',
+        ]
         read_only_fields = ['id', 'uploaded_at']
 
     def get_image_url(self, obj):
         request = self.context.get('request')
         if obj.image and request:
             return request.build_absolute_uri(obj.image.url)
+        return None
+
+    def get_normalized_image_url(self, obj):
+        request = self.context.get('request')
+        if obj.normalized_image and request:
+            return request.build_absolute_uri(obj.normalized_image.url)
         return None
 
 
@@ -37,6 +49,11 @@ class PhotoUploadSerializer(serializers.Serializer):
     date = serializers.DateField()
     photo_type = serializers.ChoiceField(choices=ProgressPhoto.PhotoType.choices)
     image = serializers.ImageField()
+    normalized_image = serializers.ImageField(required=False, allow_null=True)
+    crop_scale = serializers.FloatField(required=False, allow_null=True)
+    crop_offset_x = serializers.FloatField(required=False, allow_null=True)
+    crop_offset_y = serializers.FloatField(required=False, allow_null=True)
+    crop_aspect_ratio = serializers.FloatField(required=False, default=0.75)
 
 
 class PhotoCompareSerializer(serializers.Serializer):

@@ -65,6 +65,23 @@ def progress_photo_upload_path(instance, filename):
     return os.path.join('progress_photos', username, year, month, new_filename)
 
 
+def normalized_photo_upload_path(instance, filename):
+    """Upload path for normalized (cropped) images:
+    progress_photos/<username>/<year>/<month>/normalized/<date>_<type>_norm_<ts>.<ext>
+    """
+    session = instance.session
+    username = session.user.username
+    year = session.date.strftime('%Y')
+    month = session.date.strftime('%m')
+    date_str = session.date.strftime('%Y%m%d')
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else 'jpg'
+    photo_type = getattr(instance, 'photo_type', 'photo').lower()
+    ts = int(time.time())
+    new_filename = f"{date_str}_{photo_type}_norm_{ts}.{ext}"
+    return os.path.join('progress_photos', username, year, month, 'normalized', new_filename)
+
+
+
 class ProgressPhotoSession(models.Model):
     """One photo session per user per day."""
 
@@ -107,6 +124,17 @@ class ProgressPhoto(models.Model):
     photo_type = models.CharField(max_length=5, choices=PhotoType.choices)
     image = models.ImageField(upload_to=progress_photo_upload_path)
     uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    # ── Normalized capture fields ──────────────────────────────────────────
+    normalized_image = models.ImageField(
+        upload_to=normalized_photo_upload_path,
+        null=True,
+        blank=True,
+    )
+    crop_scale = models.FloatField(null=True, blank=True)
+    crop_offset_x = models.FloatField(null=True, blank=True)
+    crop_offset_y = models.FloatField(null=True, blank=True)
+    crop_aspect_ratio = models.FloatField(default=0.75)  # 3:4 portrait
 
     class Meta:
         db_table = 'progress_photos'

@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/progress_provider.dart';
 import '../providers/stats_provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/nav_state_provider.dart';
 import '../providers/user_profile_provider.dart';
 
 class MainScaffold extends ConsumerWidget {
@@ -16,10 +19,10 @@ class MainScaffold extends ConsumerWidget {
 
   static const _routes = ['/home', '/progress', '/photos', '/profile'];
   static const _icons = [
-    LucideIcons.home,
-    LucideIcons.lineChart,
+    LucideIcons.layoutDashboard,
+    LucideIcons.activity,
     LucideIcons.image,
-    LucideIcons.userCircle2,
+    LucideIcons.user,
   ];
   static const _labels = ['Home', 'Progress', 'Photos', 'Profile'];
 
@@ -41,6 +44,9 @@ class MainScaffold extends ConsumerWidget {
         currentIndex: currentIndex,
         onTap: (index) {
           HapticFeedback.lightImpact();
+          // Update navigation state for directional transitions
+          ref.read(navStateProvider.notifier).updateIndex(index);
+          
           switch (index) {
             case 0:
               ref.invalidate(dashboardProvider);
@@ -136,52 +142,58 @@ class _BottomBar extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPadding + 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: barHeight,
-              decoration: BoxDecoration(
-                color: background,
-                borderRadius: BorderRadius.circular(radius),
-                border: Border.all(color: border),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: .45),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: barHeight,
+                  decoration: BoxDecoration(
+                    color: background.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(radius),
+                    border: Border.all(color: Colors.white.withOpacity(0.08)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.5),
+                        blurRadius: 30,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Row(
-                children: List.generate(
-                  icons.length,
-                  (i) => Expanded(
-                    child: _NavItem(
-                      icon: icons[i],
-                      label: labels[i],
-                      selected: currentIndex == i,
-                      onTap: () => onTap(i),
-                      primary: primary,
-                      inactive: inactive,
-                      radius: radius,
+                  child: Row(
+                    children: List.generate(
+                      icons.length,
+                      (i) => Expanded(
+                        child: _NavItem(
+                          icon: icons[i],
+                          label: labels[i],
+                          selected: currentIndex == i,
+                          onTap: () => onTap(i),
+                          primary: primary,
+                          inactive: inactive,
+                          radius: radius,
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
 
-          const SizedBox(width: 10),
+              const SizedBox(width: 10),
 
-          _FabButton(
-            icon: fabIcon,
-            onTap: onFabTap,
-            primary: primary,
-            height: barHeight,
-            radius: radius,
+              _FabButton(
+                icon: fabIcon,
+                onTap: onFabTap,
+                primary: primary,
+                height: barHeight,
+                radius: radius,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -225,7 +237,7 @@ class _NavItem extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
               color: selected
-                  ? primary.withValues(alpha: .15)
+                  ? primary.withOpacity(0.15)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(radius),
             ),
@@ -313,7 +325,7 @@ class _FabButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(radius),
           boxShadow: [
             BoxShadow(
-              color: primary.withValues(alpha: .35),
+              color: primary.withOpacity(0.35),
               blurRadius: 18,
               offset: const Offset(0, 8),
             ),

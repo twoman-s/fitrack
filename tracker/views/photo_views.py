@@ -29,21 +29,37 @@ class PhotoUploadView(APIView):
             date=data['date'],
         )
 
-        # Delete old image file before replacing
+        # Delete old image files before replacing
         try:
             old_photo = ProgressPhoto.objects.get(
                 session=session,
                 photo_type=data['photo_type'],
             )
             old_photo.image.delete(save=False)
+            if old_photo.normalized_image:
+                old_photo.normalized_image.delete(save=False)
         except ProgressPhoto.DoesNotExist:
             pass
+
+        # Build defaults including crop metadata
+        defaults = {'image': data['image']}
+
+        if data.get('normalized_image'):
+            defaults['normalized_image'] = data['normalized_image']
+        if data.get('crop_scale') is not None:
+            defaults['crop_scale'] = data['crop_scale']
+        if data.get('crop_offset_x') is not None:
+            defaults['crop_offset_x'] = data['crop_offset_x']
+        if data.get('crop_offset_y') is not None:
+            defaults['crop_offset_y'] = data['crop_offset_y']
+        if data.get('crop_aspect_ratio') is not None:
+            defaults['crop_aspect_ratio'] = data['crop_aspect_ratio']
 
         # Create or replace photo for the given type
         photo, created = ProgressPhoto.objects.update_or_create(
             session=session,
             photo_type=data['photo_type'],
-            defaults={'image': data['image']},
+            defaults=defaults,
         )
 
         return Response(
@@ -108,7 +124,9 @@ class PhotoCompareView(APIView):
         return Response(serializer.data)
 
     def _get_photo_url(self, request, date_str, photo_type):
-        """Resolve a photo URL for a given date and type, or None."""
+        """Resolve a photo URL for a given date and type, or None.
+        Prefers normalized_image when available for consistent comparisons.
+        """
         try:
             session = ProgressPhotoSession.objects.get(
                 user=request.user,
@@ -118,6 +136,9 @@ class PhotoCompareView(APIView):
                 session=session,
                 photo_type=photo_type,
             )
+            # Prefer the normalized (cropped) image for comparisons
+            if photo.normalized_image:
+                return request.build_absolute_uri(photo.normalized_image.url)
             return request.build_absolute_uri(photo.image.url)
         except (ProgressPhotoSession.DoesNotExist, ProgressPhoto.DoesNotExist):
             return None
@@ -149,16 +170,24 @@ class PhotoDeleteView(APIView):
 
 
 class PhotoLatestView(APIView):
-    """Return the URL of the most recent photo for a given type. Requires completed KYC."""
+    """Return the URL and crop metadata of the most recent photo for a given type."""
 
     permission_classes = [IsAuthenticated, IsKYCCompleted]
 
     def get(self, request):
         photo_type = request.query_params.get('type', 'FRONT').upper()
+        exclude_date = request.query_params.get('exclude_date')
+
+        queryset = ProgressPhoto.objects.filter(
+            session__user=request.user, 
+            photo_type=photo_type
+        )
+        
+        if exclude_date:
+            queryset = queryset.exclude(session__date=exclude_date)
 
         photo = (
-            ProgressPhoto.objects
-            .filter(session__user=request.user, photo_type=photo_type)
+            queryset
             .select_related('session')
             .order_by('-session__date')
             .first()
@@ -167,4 +196,16 @@ class PhotoLatestView(APIView):
         if photo is None:
             return Response({'image_url': None})
 
-        return Response({'image_url': request.build_absolute_uri(photo.image.url)})
+        data = {
+            'image_url': request.build_absolute_uri(photo.image.url),
+            'normalized_image_url': (
+                request.build_absolute_uri(photo.normalized_image.url)
+                if photo.normalized_image else None
+            ),
+            'crop_scale': photo.crop_scale,
+            'crop_offset_x': photo.crop_offset_x,
+            'crop_offset_y': photo.crop_offset_y,
+            'crop_aspect_ratio': photo.crop_aspect_ratio,
+        }
+        return Response(data)
+

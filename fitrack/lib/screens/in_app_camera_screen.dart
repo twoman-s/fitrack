@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-import '../repositories/tracker_repository.dart';
+import '../widgets/camera_guide_overlay.dart';
+import 'crop_normalization_editor.dart';
 
-/// Full-screen in-app camera.
-/// Shows the last uploaded photo of the same [photoType] at 20% opacity as a
-/// positioning guide. If no prior photo exists, no overlay is shown.
+/// In-app camera with fixed 3:4 aspect ratio preview and lightweight
+/// framing guides. After capture, opens the [CropNormalizationEditor].
 ///
-/// Pops with the captured [XFile], or `null` if the user cancels.
+/// Pops with a [CropResult], or `null` if the user cancels.
 class InAppCameraScreen extends ConsumerStatefulWidget {
   final String photoType;
 
@@ -25,32 +25,13 @@ class _InAppCameraScreenState extends ConsumerState<InAppCameraScreen>
   bool _isInitializing = true;
   bool _isCapturing = false;
   String? _error;
-
-  /// URL of the last photo for this type — null means no prior photo.
-  String? _ghostImageUrl;
-  bool _ghostLoaded = false;
-  double _ghostOpacity = 0.20;
+  bool _showGuides = true;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initCamera();
-    _loadGhost();
-  }
-
-  Future<void> _loadGhost() async {
-    final repo = ref.read(trackerRepositoryProvider);
-    final url = await repo.getLatestPhoto(photoType: widget.photoType);
-    if (mounted) {
-      setState(() {
-        // Append timestamp to bust any HTTP cache on every camera open.
-        _ghostImageUrl = url != null
-            ? '$url?t=${DateTime.now().millisecondsSinceEpoch}'
-            : null;
-        _ghostLoaded = true;
-      });
-    }
   }
 
   Future<void> _initCamera() async {
@@ -148,7 +129,28 @@ class _InAppCameraScreenState extends ConsumerState<InAppCameraScreen>
     setState(() => _isCapturing = true);
     try {
       final xFile = await controller.takePicture();
-      if (mounted) Navigator.of(context).pop(xFile);
+
+      if (!mounted) return;
+
+      // Open the crop normalization editor
+      final result = await Navigator.of(context).push<CropResult>(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => CropNormalizationEditor(
+            imageFile: xFile,
+            photoType: widget.photoType,
+          ),
+        ),
+      );
+
+      if (!mounted) return;
+
+      if (result != null) {
+        Navigator.of(context).pop(result);
+      } else {
+        // User cancelled crop editor — go back to camera
+        setState(() => _isCapturing = false);
+      }
     } catch (_) {
       if (mounted) {
         setState(() => _isCapturing = false);
@@ -161,16 +163,18 @@ class _InAppCameraScreenState extends ConsumerState<InAppCameraScreen>
 
   @override
   Widget build(BuildContext context) {
-    final cameraReady = !_isInitializing && _error == null && _controller != null;
+    final cameraReady =
+        !_isInitializing && _error == null && _controller != null;
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // ── Camera preview ──────────────────────────────────────────────
+          // ── Camera preview ──────────────────────────────────────────
           if (_isInitializing)
-            const Center(child: CircularProgressIndicator(color: Colors.white))
+            const Center(
+                child: CircularProgressIndicator(color: Colors.white))
           else if (_error != null)
             Center(
               child: Padding(
@@ -193,24 +197,18 @@ class _InAppCameraScreenState extends ConsumerState<InAppCameraScreen>
           else if (_controller != null)
             _buildPreview(_controller!),
 
-          // ── Ghost overlay: last photo at variable opacity ─────────────
-          if (cameraReady && _ghostLoaded && _ghostImageUrl != null)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: Opacity(
-                  opacity: _ghostOpacity,
-                  child: Image.network(
-                    _ghostImageUrl!,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                  ),
+          // ── Framing guide overlay ───────────────────────────────────
+          if (cameraReady && _showGuides)
+            Center(
+              child: AspectRatio(
+                aspectRatio: 3 / 4,
+                child: IgnorePointer(
+                  child: CameraGuideOverlay(photoType: widget.photoType),
                 ),
               ),
             ),
 
-          // ── Close button ────────────────────────────────────────────────
+          // ── Close button ────────────────────────────────────────────
           Positioned(
             top: MediaQuery.of(context).padding.top + 8,
             left: 8,
@@ -220,81 +218,103 @@ class _InAppCameraScreenState extends ConsumerState<InAppCameraScreen>
             ),
           ),
 
-          // ── Pose label ──────────────────────────────────────────────────
+          // ── Guide toggle ────────────────────────────────────────────
+          if (cameraReady)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 8,
+              right: 8,
+              child: _CircleIconButton(
+                icon: _showGuides ? Icons.grid_3x3 : Icons.grid_off,
+                onTap: () => setState(() => _showGuides = !_showGuides),
+              ),
+            ),
+
+          // ── Pose label ──────────────────────────────────────────────
           Positioned(
             top: MediaQuery.of(context).padding.top + 16,
             left: 0,
             right: 0,
             child: Center(
-              child: Text(
-                '${_labelFor(widget.photoType)} Pose',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${_labelFor(widget.photoType)} Pose',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
             ),
           ),
 
-          // ── Shutter button ──────────────────────────────────────────────
+          // ── Distance instruction ────────────────────────────────────
+          if (cameraReady)
+            Positioned(
+              bottom: MediaQuery.of(context).padding.bottom + 120,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.45),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'Stand ~2m away  •  Phone at chest height',
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // ── Shutter button ──────────────────────────────────────────
           Positioned(
             bottom: MediaQuery.of(context).padding.bottom + 40,
             left: 0,
             right: 0,
             child: Center(
               child: GestureDetector(
-                onTap: (_isCapturing || _controller == null) ? null : _capture,
+                onTap:
+                    (_isCapturing || _controller == null) ? null : _capture,
                 child: _ShutterButton(isCapturing: _isCapturing),
               ),
             ),
           ),
-
-          // ── Ghost opacity slider ────────────────────────────────────────
-          if (cameraReady && _ghostLoaded && _ghostImageUrl != null)
-            Positioned(
-              bottom: MediaQuery.of(context).padding.bottom + 110,
-              left: 24,
-              right: 24,
-              child: Row(
-                children: [
-                  const Icon(Icons.layers, color: Colors.white54, size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        trackHeight: 2,
-                        thumbShape: const RoundSliderThumbShape(
-                            enabledThumbRadius: 7),
-                        overlayShape: SliderComponentShape.noOverlay,
-                        activeTrackColor: Colors.white,
-                        inactiveTrackColor: Colors.white24,
-                        thumbColor: Colors.white,
-                      ),
-                      child: Slider(
-                        value: _ghostOpacity,
-                        min: 0.0,
-                        max: 0.6,
-                        onChanged: (v) =>
-                            setState(() => _ghostOpacity = v),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
         ],
       ),
     );
   }
 
+  /// Fixed 3:4 aspect ratio preview — no more Transform.scale hack.
   Widget _buildPreview(CameraController controller) {
-    final size = MediaQuery.of(context).size;
-    final scale = 1 / (controller.value.aspectRatio * size.aspectRatio);
-    return Transform.scale(
-      scale: scale < 1 ? 1 : scale,
-      child: Center(child: CameraPreview(controller)),
+    return Center(
+      child: AspectRatio(
+        aspectRatio: 3 / 4,
+        child: ClipRect(
+          child: FittedBox(
+            fit: BoxFit.cover,
+            child: SizedBox(
+              width: controller.value.previewSize!.height,
+              height: controller.value.previewSize!.width,
+              child: CameraPreview(controller),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -363,7 +383,7 @@ class _CircleIconButton extends StatelessWidget {
         height: 40,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.black.withValues(alpha: 0.45),
+          color: Colors.black.withOpacity(0.45),
         ),
         child: Icon(icon, color: Colors.white, size: 20),
       ),

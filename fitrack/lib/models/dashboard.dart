@@ -80,12 +80,25 @@ class ProgressPhoto {
   final int id;
   final String photoType;
   final String? imageUrl;
+  final String? normalizedImageUrl;
+  final double? cropScale;
+  final double? cropOffsetX;
+  final double? cropOffsetY;
+  final double? cropAspectRatio;
   final String uploadedAt;
+
+  /// Use the normalized image when available for display, falling back to original.
+  String? get displayUrl => normalizedImageUrl ?? imageUrl;
 
   ProgressPhoto({
     required this.id,
     required this.photoType,
     this.imageUrl,
+    this.normalizedImageUrl,
+    this.cropScale,
+    this.cropOffsetX,
+    this.cropOffsetY,
+    this.cropAspectRatio,
     required this.uploadedAt,
   });
 
@@ -94,6 +107,11 @@ class ProgressPhoto {
       id: json['id'],
       photoType: json['photo_type'],
       imageUrl: json['image_url'],
+      normalizedImageUrl: json['normalized_image_url'],
+      cropScale: (json['crop_scale'] as num?)?.toDouble(),
+      cropOffsetX: (json['crop_offset_x'] as num?)?.toDouble(),
+      cropOffsetY: (json['crop_offset_y'] as num?)?.toDouble(),
+      cropAspectRatio: (json['crop_aspect_ratio'] as num?)?.toDouble(),
       uploadedAt: json['uploaded_at'],
     );
   }
