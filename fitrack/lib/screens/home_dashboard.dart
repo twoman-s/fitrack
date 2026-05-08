@@ -29,8 +29,14 @@ String _greetingEmoji() {
   return '🌙';
 }
 
-class HomeDashboard extends ConsumerWidget {
+class HomeDashboard extends ConsumerStatefulWidget {
   const HomeDashboard({super.key});
+
+  @override
+  ConsumerState<HomeDashboard> createState() => _HomeDashboardState();
+}
+
+class _HomeDashboardState extends ConsumerState<HomeDashboard> with RouteAware {
 
   String _formatTime(String? timeStr) {
     if (timeStr == null || timeStr.isEmpty) return '--:--';
@@ -38,8 +44,11 @@ class HomeDashboard extends ConsumerWidget {
       final parts = timeStr.split(':');
       final now = DateTime.now();
       final utcDateTime = DateTime.utc(
-        now.year, now.month, now.day,
-        int.parse(parts[0]), int.parse(parts[1]),
+        now.year,
+        now.month,
+        now.day,
+        int.parse(parts[0]),
+        int.parse(parts[1]),
       );
       final localDateTime = utcDateTime.toLocal();
       return DateFormat('h:mm a').format(localDateTime);
@@ -49,7 +58,22 @@ class HomeDashboard extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh data whenever we return to this screen
+    final route = ModalRoute.of(context);
+    if (route != null && route.isCurrent) {
+      // Small delay to ensure the UI is ready
+      Future.microtask(() {
+        if (mounted) {
+          ref.invalidate(dashboardProvider);
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final dashboardAsync = ref.watch(dashboardProvider);
 
     return Scaffold(

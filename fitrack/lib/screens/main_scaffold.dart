@@ -8,6 +8,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/progress_provider.dart';
 import '../providers/stats_provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/nav_state_provider.dart';
 import '../providers/user_profile_provider.dart';
 
 class MainScaffold extends ConsumerWidget {
@@ -42,6 +44,9 @@ class MainScaffold extends ConsumerWidget {
         currentIndex: currentIndex,
         onTap: (index) {
           HapticFeedback.lightImpact();
+          // Update navigation state for directional transitions
+          ref.read(navStateProvider.notifier).updateIndex(index);
+          
           switch (index) {
             case 0:
               ref.invalidate(dashboardProvider);

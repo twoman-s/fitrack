@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -23,6 +23,59 @@ import '../screens/goals_list_screen.dart';
 import '../models/weight.dart';
 import '../models/goal.dart';
 import '../providers/auth_provider.dart';
+import '../providers/nav_state_provider.dart';
+
+Page<dynamic> _buildPageWithTransition({
+  required Widget child,
+  required int index,
+  required Ref ref,
+}) {
+  final navState = ref.read(navStateProvider);
+  final isForward = index >= navState.current; 
+  // Note: Since we update index BEFORE navigation in MainScaffold,
+  // index will equal navState.current.
+  // We compare index with previous to determine direction.
+  final beginOffset = index > navState.previous 
+      ? const Offset(1.0, 0.0) 
+      : const Offset(-1.0, 0.0);
+
+  return CustomTransitionPage(
+    key: ValueKey('${index}_${navState.previous}'), // Force recreation on index change
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return SlideTransition(
+        position: Tween<Offset>(
+          begin: beginOffset,
+          end: Offset.zero,
+        ).animate(CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeInOutCubic,
+        )),
+        child: child,
+      );
+    },
+    transitionDuration: const Duration(milliseconds: 300),
+  );
+}
+
+Page<dynamic> _buildBottomToTopPage({required Widget child}) {
+  return CustomTransitionPage(
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0.0, 1.0),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeInOutCubic,
+        )),
+        child: child,
+      );
+    },
+    transitionDuration: const Duration(milliseconds: 400),
+  );
+}
 
 /// Bridges Riverpod auth state into a [ChangeNotifier] that GoRouter can
 /// listen to via [GoRouter.refreshListenable]. This keeps the GoRouter
@@ -97,28 +150,44 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: '/home',
-            builder: (context, state) => const HomeDashboard(),
+            pageBuilder: (context, state) => _buildPageWithTransition(
+              child: const HomeDashboard(),
+              index: 0,
+              ref: ref,
+            ),
           ),
           GoRoute(
             path: '/progress',
-            builder: (context, state) => const ProgressGraphScreen(),
+            pageBuilder: (context, state) => _buildPageWithTransition(
+              child: const ProgressGraphScreen(),
+              index: 1,
+              ref: ref,
+            ),
           ),
           GoRoute(
             path: '/photos',
-            builder: (context, state) => const PhotoProgressScreen(),
+            pageBuilder: (context, state) => _buildPageWithTransition(
+              child: const PhotoProgressScreen(),
+              index: 2,
+              ref: ref,
+            ),
           ),
           GoRoute(
             path: '/profile',
-            builder: (context, state) => const ProfileScreen(),
+            pageBuilder: (context, state) => _buildPageWithTransition(
+              child: const ProfileScreen(),
+              index: 3,
+              ref: ref,
+            ),
           ),
         ],
       ),
       // Full screen routes
       GoRoute(
         path: '/add-weight',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final entry = state.extra as WeightEntry?;
-          return AddWeightScreen(entry: entry);
+          return _buildBottomToTopPage(child: AddWeightScreen(entry: entry));
         },
       ),
       GoRoute(
@@ -127,10 +196,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/add-photos',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final date = state.extra as String? ??
               DateFormat('yyyy-MM-dd').format(DateTime.now());
-          return AddPhotosScreen(date: date);
+          return _buildBottomToTopPage(child: AddPhotosScreen(date: date));
         },
       ),
       GoRoute(
